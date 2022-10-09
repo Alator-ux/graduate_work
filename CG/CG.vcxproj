@@ -146,8 +146,12 @@
     <ClCompile Include="Widgets.cpp" />
   </ItemGroup>
   <ItemGroup>
+<<<<<<< HEAD
     <ClInclude Include="3DChanger.h" />
     <ClInclude Include="Figure.h" />
+=======
+    <ClInclude Include="Fractal.h" />
+>>>>>>> deaef92 (started fractals part)
     <ClInclude Include="Keyboard.h" />
     <ClInclude Include="Light.h" />
     <ClInclude Include="Line_worker.h" />
@@ -156,6 +160,7 @@
     <ClInclude Include="PointClassifier.h" />
     <ClInclude Include="PrimitiveChanger.h" />
     <ClInclude Include="Primitives.h" />
+    <ClInclude Include="Selector.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="Widgets.h" />
   </ItemGroup>

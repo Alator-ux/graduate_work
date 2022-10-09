@@ -126,15 +126,10 @@ class PrimitiveFabric {
     int code = 0;
     glm::vec3 color;
     std::vector<Primitive> primitives;
-    GLuint w_width;
-    GLuint w_height;
     bool prim_finished = true;
     size_t max_size;
 public:
-    PrimitiveFabric(){}
-    PrimitiveFabric(GLuint w_width, GLuint w_height) {
-        this->w_width = w_width;
-        this->w_height = w_height;
+    PrimitiveFabric() {
         color = glm::vec3(1.0f);
         max_size = 10;
     }
@@ -156,12 +151,10 @@ public:
         {
         case 0:
             create_point(coords);
-            prim_finished = true;
             break;
         case 1:
             if (prim_finished) {
                 create_edge(coords);
-                prim_finished = false;
             }
             else {
                 Edge* edge = reinterpret_cast<Edge*>(&primitives[primitives.size() - 1]);
@@ -172,7 +165,6 @@ public:
         case 2:
             if (prim_finished) {
                 create_polygon(coords);
-                prim_finished = false;
             }
             else {
                 Polygon* polygon = reinterpret_cast<Polygon*>(&primitives[primitives.size() - 1]);
@@ -209,18 +201,21 @@ public:
             return;
         }
         primitives.push_back(Point(coord, color));
+        prim_finished = true;
     }
     void create_edge(glm::vec3 coords) {
         if (primitives.size() == max_size) {
             return;
         }
         primitives.push_back(Edge(coords, color));
+        prim_finished = false;
     }
     void create_polygon(glm::vec3 coords) {
         if (primitives.size() == max_size) {
             return;
         }
         primitives.push_back(Polygon(coords, color));
+        prim_finished = false;
     }
     void clear() {
         primitives.clear();
@@ -241,20 +236,24 @@ class Drawer {
     GLuint vPos;
     Shader* shader;
     OpenGLManager* manager;
+    glm::mat4 projection;
     bool first;
 public:
     Drawer(){
     }
-    Drawer(Shader* shader, const char* vPosName) {
+    Drawer(Shader* shader, const char* vPosName, GLuint w_width, GLuint w_height) {
         this->shader = shader;
         this->vPos = this->shader->get_attrib_location(vPosName);
         this->manager = OpenGLManager::get_instance();
         this->first = true;
+
+        this->projection = glm::ortho(0.0f, (float)w_width, (float)w_height, 0.0f, 1.0f, -1.0f);
     }
     void draw(std::vector<Primitive>& primitives, const std::string& buffer_name) {
         GLint from = 0;
         GLint count = 0;
         shader->use_program();
+        shader->uniformMatrix4fv("projection", projection);
         glEnableVertexAttribArray(vPos);
         glBindBuffer(GL_ARRAY_BUFFER, manager->get_buffer_id(buffer_name));
         glVertexAttribPointer(vPos, 3, GL_FLOAT, GL_FALSE, 0, 0);

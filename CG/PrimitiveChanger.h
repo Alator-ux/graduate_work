@@ -3,21 +3,19 @@
 #include "GLM/mat3x3.hpp"
 #include "GLM/vec3.hpp"
 #include "GLM/glm.hpp"
-#include <typeinfo>
 
 
 const double PI = 3.141592653589793238463;
-const int empty_item = -1;
 
 double toRadians(double angle) {
     return PI * angle / 180.0;
 }
 
 class PrimitiveChanger {
-    std::vector<Primitive>* storage;
-    int item_index;
-
+<<<<<<< HEAD
     // Converts provided angle to it's radian presentation
+=======
+>>>>>>> deaef92 (started fractals part)
     glm::vec3 matrix_mult(glm::mat3x3 afin_matrix, glm::vec3 point)
     {
         glm::vec3 res;
@@ -107,17 +105,17 @@ class PrimitiveChanger {
     }
 public:
     PrimitiveChanger(){}
-    PrimitiveChanger(std::vector<Primitive>* storage) {
-        this->storage = storage;
-        this->item_index = -1;
+
+    // Converts provided angle to it's radian presentation
+    double toRadians(double angle) {
+        return PI * angle / 180.0;
     }
 
-    void shift(glm::vec3 coords) {
-        if (item_index == empty_item) {
+    void shift(Primitive* item, glm::vec3 coords) {
+        if (item == nullptr) {
             return;
         }
         
-        Primitive* item = &(*storage)[item_index];
         std::vector<glm::vec3> points = item->points;
         GLfloat dx = coords.x - points[0].x;
         GLfloat dy = coords.y - points[0].y;
@@ -125,6 +123,7 @@ public:
         glm::mat3x3 shift_matrix = glm::mat3x3(1, 0, 0, 
                                                0, 1, 0, 
                                                dx, dy, 1);
+        //shift_matrix = glm::transpose(shift_matrix);
         
         for (int i = 0; i < points.size(); i++) {
             glm::vec3 values = glm::vec3(points[i][0], points[i][1], 1); //TODO: remove it m8
@@ -133,12 +132,11 @@ public:
             item->points[i] = shifted_point;
         }
     }
-    void rotate_around_point(glm::vec3 point, double angle) {
-        if (item_index == empty_item) {
+    void rotate_around_point(Primitive* item, glm::vec3 point, double angle) {
+        if (item == nullptr) {
             return;
         }
 
-        Primitive* item = &(*storage)[item_index];
         std::vector<glm::vec3> points = item->points;
 
         glm::mat3x3 rotation_matrix = this->build_rotation_matrix(point[0], point[1], angle);
@@ -150,7 +148,6 @@ public:
         );
         auto v = glm::vec3(1, 2, 3);
         auto res = matrix_mult(e, v);
-        //rotation_matrix = glm::transpose(rotation_matrix);
         
         for (int i = 0; i < points.size(); i++) {
             glm::vec3 values = glm::vec3(points[i][0], points[i][1], 1);
@@ -159,13 +156,13 @@ public:
         }
     }
 
-    void scale_from_point(glm::vec3 point, double x_factor, double y_factor) {
-        if (item_index == empty_item) {
+    void scale_from_point(Primitive* item, glm::vec3 point, double x_factor, double y_factor) {
+        if (item == nullptr) {
             return;
         }
+
         auto scale_matrix = this->build_scale_matrix(point[0], point[1], x_factor, y_factor);
 
-        Primitive* item = &(*storage)[item_index];
         auto points = item->points;
 
         for (int i = 0; i < points.size(); i++) {
@@ -175,16 +172,11 @@ public:
         }
     }
 
-    void rotate_90() {
-        if (item_index == empty_item) {
+    void rotate_90(Primitive* item) {
+        if (item == nullptr) {
             return;
         }
-        Primitive* item = &(*storage)[item_index];
         auto point = get_center(item->points);
-        this->rotate_around_point(point, 90.0);
-    }
-
-    void set_active_item(int item_index) {
-        this->item_index = item_index;
+        this->rotate_around_point(item, point, 90.0);
     }
 };
