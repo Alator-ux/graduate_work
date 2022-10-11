@@ -21,3 +21,5 @@ bool primitive_item_getter(void* data, int index, const char** output)
 
     return true;
 }
+
+char Vec3Selector::identifier = '0';

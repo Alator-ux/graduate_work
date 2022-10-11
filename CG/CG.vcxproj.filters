@@ -58,7 +58,19 @@
       <Filter>Исходные файлы\imgui</Filter>
     </ClCompile>
     <ClCompile Include="Widgets.cpp">
-      <Filter>Исходные файлы\Widgets</Filter>
+      <Filter>Пиписи\Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenGLWrappers.cpp">
+      <Filter>Пиписи</Filter>
+    </ClCompile>
+    <ClCompile Include="STLLoader.cpp">
+      <Filter>Пиписи\Drawable</Filter>
+    </ClCompile>
+    <ClCompile Include="3DChanger.cpp">
+      <Filter>Пиписи\Changers</Filter>
+    </ClCompile>
+    <ClCompile Include="RotationFigure.cpp">
+      <Filter>Пиписи\Drawable\Figure</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -77,9 +89,6 @@
     <ClInclude Include="Primitives.h">
       <Filter>Файлы заголовков\Models</Filter>
     </ClInclude>
-    <ClInclude Include="Keyboard.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="Widgets.h">
       <Filter>Файлы заголовков\Widgets</Filter>
     </ClInclude>
@@ -92,11 +101,62 @@
     <ClInclude Include="PointClassifier.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Selector.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="Primitives.h">
+      <Filter>Заголовочные файлы\Drawing\Drawable</Filter>
+    </ClInclude>
+    <ClInclude Include="Light.h">
+      <Filter>Заголовочные файлы\Drawing\Drawable</Filter>
+    </ClInclude>
+    <ClInclude Include="3DChanger.h">
+      <Filter>Заголовочные файлы\Changers</Filter>
+    </ClInclude>
+    <ClInclude Include="PrimitiveChanger.h">
+      <Filter>Заголовочные файлы\Changers</Filter>
+    </ClInclude>
+    <ClInclude Include="PointClassifier.h">
+      <Filter>Заголовочные файлы\Analyzers\2D</Filter>
+    </ClInclude>
+    <ClInclude Include="Bezier.h">
+      <Filter>Заголовочные файлы\Drawing\Drawable</Filter>
     </ClInclude>
     <ClInclude Include="Fractal.h">
-      <Filter>Файлы заголовков</Filter>
+      <Filter>Заголовочные файлы\Drawing\Drawable</Filter>
+    </ClInclude>
+    <ClInclude Include="Line_worker.h">
+      <Filter>Заголовочные файлы\Analyzers\2D</Filter>
+    </ClInclude>
+    <ClInclude Include="Widgets.h">
+      <Filter>Заголовочные файлы\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenGLWrappers.h">
+      <Filter>Заголовочные файлы\Drawing</Filter>
+    </ClInclude>
+    <ClInclude Include="Projection.h">
+      <Filter>Заголовочные файлы\Drawing</Filter>
+    </ClInclude>
+    <ClInclude Include="Drawer.h">
+      <Filter>Заголовочные файлы\Drawing</Filter>
+    </ClInclude>
+    <ClInclude Include="STLLoader.h">
+      <Filter>Заголовочные файлы\Drawing</Filter>
+    </ClInclude>
+    <ClInclude Include="FigureBuilder.h">
+      <Filter>Заголовочные файлы\Drawing\Drawable\Figure</Filter>
+    </ClInclude>
+    <ClInclude Include="Figure.h">
+      <Filter>Заголовочные файлы\Drawing\Drawable\Figure</Filter>
+    </ClInclude>
+    <ClInclude Include="RotationFigure.h">
+      <Filter>Заголовочные файлы\Drawing\Drawable\Figure</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreeDInterface.h">
+      <Filter>Заголовочные файлы\Drawing\Drawable\Figure</Filter>
+    </ClInclude>
+    <ClInclude Include="FunctionFigure.h">
+      <Filter>Заголовочные файлы\Drawing\Drawable\Figure</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Заголовочные файлы</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -106,5 +166,53 @@
     <None Include="main.vert">
       <Filter>Файлы ресурсов</Filter>
     </None>
+    <None Include="models\Icosahedron.stl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Заголовочные файлы">
+      <UniqueIdentifier>{e5e069aa-0506-4a82-bfa5-530c6d546cd6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Пиписи">
+      <UniqueIdentifier>{d137389e-e6c9-48f9-bed8-c5a9a6281241}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Пиписи\imgui">
+      <UniqueIdentifier>{3ea91581-f06a-45db-9f90-c6b2299c5567}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Пиписи\Widgets">
+      <UniqueIdentifier>{4f2960e3-0261-42bc-a1d9-1a2605513065}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{01504cec-8520-4f81-9473-2ae4ea66f5cc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Заголовочные файлы\Changers">
+      <UniqueIdentifier>{c90c7da6-2a78-4f07-8f61-e102b6344454}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Заголовочные файлы\Analyzers">
+      <UniqueIdentifier>{dcc84238-ccc3-4112-8fde-296e493676b4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Заголовочные файлы\Analyzers\2D">
+      <UniqueIdentifier>{bfc79cac-b169-4baa-85c5-b9b5647fee65}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Заголовочные файлы\Widgets">
+      <UniqueIdentifier>{31710da6-7e58-4d6f-998e-11181da7bf24}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Заголовочные файлы\Drawing">
+      <UniqueIdentifier>{86d28616-4d0d-4785-9807-cfe6421d99ad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Заголовочные файлы\Drawing\Drawable">
+      <UniqueIdentifier>{d341c541-efac-4537-9aab-e3408bda7e3d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Пиписи\Drawable">
+      <UniqueIdentifier>{108d3ac3-42ae-404e-b6b3-67b268e3e8e6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Заголовочные файлы\Drawing\Drawable\Figure">
+      <UniqueIdentifier>{f534ff00-835e-4650-998c-c34a11622a05}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Пиписи\Changers">
+      <UniqueIdentifier>{5dc91577-069f-453e-a011-230f7d4d9947}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Пиписи\Drawable\Figure">
+      <UniqueIdentifier>{63891ad8-b9c9-4bd2-9cb7-1e1207b35abd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

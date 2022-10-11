@@ -4,13 +4,6 @@
 #include "GLM/vec3.hpp"
 #include "GLM/glm.hpp"
 
-
-const double PI = 3.141592653589793238463;
-
-double toRadians(double angle) {
-    return PI * angle / 180.0;
-}
-
 class PrimitiveChanger {
 <<<<<<< HEAD
     // Converts provided angle to it's radian presentation
@@ -25,9 +18,6 @@ class PrimitiveChanger {
             for (int k = 0; k < 3; ++k)
                 res[i] += afin_matrix[k][i] * point[k];
         }
-        glm::vec3 result;;
-        //for (int i = 0; i < 3; ++i)
-          //  result[i] = round(res[i]);
         return res;
     }
 

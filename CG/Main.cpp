@@ -3,24 +3,18 @@
 #include <iostream>
 #include "OpenGLWrappers.h"
 #include "Primitives.h"
-
-#include "imgui.h" // necessary for ImGui::*, imgui-SFML.h doesn't include imgui.h
-
-//#include "imgui-SFML.h" // for ImGui::SFML::* functions and SFML-specific overloads
-
-#include <SFML/Graphics/CircleShape.hpp>
-#include <SFML/Graphics/RenderWindow.hpp>
-#include <SFML/System/Clock.hpp>
-#include <SFML/Window/Event.hpp>
+#include "Midpoint.h"
+#include "imgui.h"
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_glfw.h>
 #include "Widgets.h"
 #include "PrimitiveChanger.h"
-#include "Line_worker.h"
-#include "PointClassifier.h"
-#include "Selector.h"
 #include "Fractal.h"
-using namespace std;
+#include "Bezier.h"
+#include "Projection.h"
+#include "FigureBuilder.h"
+#include "FunctionFigure.h"
+#include "Camera.h"
 
 const GLuint W_WIDTH = 1280;
 const GLuint W_HEIGHT = 720;
@@ -31,10 +25,15 @@ Drawer drawer;
 PrimitiveChanger pc;
 Fractal frac = Fractal(0, 0, 0, 
     glm::vec3(W_WIDTH/2,W_HEIGHT/2,0), glm::vec3(W_WIDTH,W_HEIGHT,0));
+MidpointDisplacer midp_disp = MidpointDisplacer(glm::vec3(W_WIDTH / 2, W_HEIGHT / 2, 0),
+    glm::vec3(W_WIDTH, W_HEIGHT / 2, 0));
+Bezier bezier;
 
 void Init(OpenGLManager*);
-void Draw(OpenGLManager*);
+void Draw(OpenGLManager*, int);
 void Release();
+void Do_Movement();
+void keyboard_callback(GLFWwindow*, int, int, int, int);
 void mouse_callback(GLFWwindow*, int, int, int);
 void mouse_scrollback(GLFWwindow*, double, double);
 glm::vec3 convert_coords(GLfloat, GLfloat, GLuint, GLuint);
@@ -53,6 +52,7 @@ int main() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
+    glfwSetKeyCallback(window, keyboard_callback);
     glfwSetMouseButtonCallback(window, mouse_callback);
     glfwSetScrollCallback(window, mouse_scrollback);
     glewInit();
@@ -66,15 +66,54 @@ int main() {
     ImGui::StyleColorsDark();
 
     bool show_demo_window = true;
-    bool show_another_window = false;
     
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    std::vector<string> items = { "Koch curve", "Koch snowflake",
-        "Serpinsky Triangle", "Serpinsky carpet", "High tree"};
-    auto lb = DropDownMenu("Fractal type", items);
+    std::vector<std::string> items = { "Perspective", "Axonometric", "None"};
+    auto ddm = DropDownMenu("Projection type", items);
+    auto lb = ListBox("Points", bezier.get_bezier_points());
     auto colorChooser = ColorChooser("Primitive Color");
-    auto polygon_list = ListBox("Primitives", &pf.get_items());
-    auto is = IntSlider("Fractal generation");
+    auto frac_slider = IntSlider("Fractal generation", 1, 15);
+    auto fcscs = IntSlider("Color steps count", 0, 100); // frac color steps count slider
+    auto frafs = IntSlider("Random angle from", 0, 360); // frac random angle from slider
+    auto frats = IntSlider("Random angle to", 0, 360); // frac random angle to slider
+    auto midp_count_slider = IntSlider("Midpoints count", 0, 40);
+    auto midp_coef_slider = FloatSlider("Midpoints coef", 0, 1);
+    auto rbr = RadioButtonRow();
+    
+
+    
+    auto fig_builder = FigureBuilder();
+
+    items = {"Add", "Shift", "Scale", "Rotate", "Custom rotate", "Reflect by axis"};
+    auto rbr = RadioButtonRow(items);
+
+    // Widgets for Add mode
+    items = {"Tetrahedron", "Octahedron", "Hexahedron", "Icosahedron", "Rotation figure","Function"};
+    auto poly_menu = DropDownMenu("Polyhedron type", items);
+
+    // Widgets for Shift and Scale mode
+    auto vec3_selector = Vec3Selector();
+
+    // Widgets for Scale mode
+    auto scale_coef = InputFloat("Scale coef");
+
+    // Widhets for Rotate mode
+    items = { "ox", "oy", "oz" };
+    auto axis_menu = DropDownMenu("Axis type", items, 80);
+    auto angle_selector = InputFloat("Angle");
+
+
+    
+    /* Widgets for Custom rotate mode */
+    // point 1 vec3 custom rotate selector
+    auto p1_vec3_crs = Vec3Selector();
+    // point 2 vec3 custom rotate selector
+    auto p2_vec3_crs = Vec3Selector();
+
+
+    // Widgets for Reflection relative to the selected coordinate plane
+    // axis_menu
+
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -90,6 +129,8 @@ int main() {
         {
             ImGui::Begin("Hello, world!", 0, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
+            if (ddm.draw()) {
+                drawer.set_projection_mode(projection::Type(ddm.selectedItem));
             if (colorChooser.draw()) {
                 pf.update_color(colorChooser.rgb_value());
             }
@@ -99,61 +140,165 @@ int main() {
             glfwGetCursorPos(window, &xpos, &ypos);
             auto cur_coords = convert_coords(xpos, ypos, W_WIDTH, W_HEIGHT);
             ImGui::Text("x = %.7f, y = %.7f", cur_coords.x, cur_coords.y);
-            if (lb.draw()) {
-                frac.set_fractal_type(lb.selectedItem);
-                pf.update_code(lb.selectedItem);
+            rbr.draw();
+            switch (rbr.get_value())
+            {
+            case 0:
+            {
+                mode = -1;
+                if (ddm.draw()) {
+                    frac.set_fractal_type(ddm.selectedItem);
+                }
+                if (frac_slider.draw()) {
+                    frac.set_generation(frac_slider.get_value());
+                }
+                /*if (fcscs.draw()) {
+                    frac.set_color_steps(fcscs.get_value());
+                }*/
+                frafs.draw();
+                frats.draw();
+                if (ImGui::Button("Set start color")) {
+                    frac.set_start_color(colorChooser.rgb_value());
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Set end color")) {
+                    frac.set_end_color(colorChooser.rgb_value());
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Generate fractal")) {
+                    frac.generate(frafs.get_value(), frats.get_value());
+                    drawer.set_vbo("frac", frac.get_items());
+                poly_menu.draw();
+                if (ImGui::Button("Apply")) {
+                    storage.clear();
+                    if (poly_menu.selectedItem == 4) {
+                        auto func = [](float x, float y) {
+                            return std::pow((x), 2) + std::pow((y), 2);
+                        };
+                        auto base = Line(glm::vec3(0.f, -0.5f, 0.f), colorChooser.rgb_value());
+                        base.push_point(glm::vec3(0.5f, 0.f, 0.f));
+                        base.push_point(glm::vec3(0.f, 0.5f, 0.f));
+                        auto fig = RotationFigure(base);
+                        fig.build(Axis::oy, 90);
+                        auto pointer = reinterpret_cast<HighLevelInterface*>(&fig);
+                        storage.push_back(*pointer);
+                        drawer.set_vbo("figure", storage);
+                    }
+                    if (poly_menu.selectedItem ==5) {
+                        auto func = [](float x, float y) {
+                            return std::pow((x), 2) + std::pow((y), 2);
+                        };
+                        auto fig = FunctionFigure(func, -1, 1, -1, 1, 10);
+                        auto pointer = reinterpret_cast<HighLevelInterface*>(&fig);
+                        storage.push_back(*pointer);
+                        drawer.set_vbo("figure", storage);
+                    }
+                    else {
+                        auto fig = fig_builder.buildFigure(FigureType(poly_menu.selectedItem),
+                            colorChooser.rgb_value());
+                        auto pointer = reinterpret_cast<HighLevelInterface*>(&fig);
+                        storage.push_back(*pointer);
+                        drawer.set_vbo("figure", storage);
+                    }
+                }
+                break;
             }
-            if (is.draw()) {
-                frac.set_generation(is.get_value());
+            case 1:
+            {
+                mode = -1;
+                if (midp_count_slider.draw()) {
+                    midp_disp.set_count(midp_count_slider.get_value());
+                }
+                midp_coef_slider.draw();
+                if (ImGui::Button("Next midpoint")) {
+                    midp_disp.next(midp_coef_slider.get_value(), colorChooser.rgb_value());
+                    drawer.set_vbo("midp", midp_disp.get_items());
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Clear")) {
+                    midp_disp.clear();
+                    drawer.set_vbo("midp", midp_disp.get_items());
+                }
+                ImGui::Text("Midpoints %i/%i", midp_disp.get_current_count(),
+                    midp_disp.get_amount_count());
+                break;
             }
-            std::stringstream ss;
-            ss << "Mode " << mode;
-            ImGui::Text(ss.str().c_str());
-            if (ImGui::Button("Add")) {
-                mode = 0;
+            case 2:
+            {
+                if (ImGui::Button("Add point")) {
+                    mode = 0;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Delete point")) {
+                    bezier.delete_point();
+                    drawer.set_vbo("bez_points", bezier.get_points());
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Shift point")) {
+                    mode = 1;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Clear")) {
+                    bezier.clear();;
+                if (ImGui::Button("Apply around center")) {
+                    scale_around_center(&storage[0], vec3_selector.get_value());
+                    drawer.set_vbo("figure", storage);
+                }
+                if (ImGui::Button("Set line color")) {
+                    bezier.set_line_color(colorChooser.rgb_value());
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Set points color")) {
+                    bezier.set_points_color(colorChooser.rgb_value());
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Generate")) {
+                    bezier.generate();
+                    std::vector<Primitive> line;
+                    auto l = bezier.get_line();
+                    if (l != nullptr) {
+                        line.push_back(*l);
+                        drawer.set_vbo("bez_line", line);
+                    }
+                ImGui::SameLine();
+                ImGui::Text(" or ");
+                ImGui::SameLine();
+                if (ImGui::Button("Apply around center")) {
+                    rotate_around_center(&storage[0], Axis(axis_menu.selectedItem), angle_selector.get_value());
+                    drawer.set_vbo("figure", storage);
+                }
+                break;
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Move")) {
-                mode = 1;
+            case 4:
+            {
+                ImGui::Text("First point coordinates: ");
+                ImGui::SameLine();
+                p1_vec3_crs.draw();
+                ImGui::Text("Second point coordinates: ");
+                ImGui::SameLine();
+                p2_vec3_crs.draw();
+                angle_selector.draw();
+                if (ImGui::Button("Apply")) {
+                    rotate_around_line(&storage[0], angle_selector.get_value(),
+                        p1_vec3_crs.get_value(), p2_vec3_crs.get_value());
+                    drawer.set_vbo("figure", storage);
+                }
+                break;
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Rotate")) {
-                mode = 2;
+            case 5:
+            {
+                axis_menu.draw();
+                if (ImGui::Button("Apply")) {
+                    reflection_about_the_axis(&storage[0],
+                        Axis(axis_menu.selectedItem));
+                    drawer.set_vbo("figure", storage);
+                }
+                lb.draw();
+                bezier.set_active_point(lb.selectedItem);
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Rotate 90")) {
-                mode = 3;
+            default:
+                break;
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Scale")) {
-                mode = 4;
-            }
-            if (ImGui::Button("Classify")) {
-                mode = 5;
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Fractal")) {
-                frac.generate();
-                drawer.set_vbo("frac", frac.get_items());
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Clear")) {
-                pf.clear();
-                selector.set_item_index(-1);
-            }
-            if (polygon_list.draw()) {
-                selector.set_item_index(polygon_list.selectedItem);
-            }
-            ImGui::End();
-        }
-
-        // 3. Show another simple window.
-        if (show_another_window)
-        {
-            ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me"))
-                show_another_window = false;
             ImGui::End();
         }
 
@@ -164,8 +309,9 @@ int main() {
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-        glClear(GL_COLOR_BUFFER_BIT);
-        Draw(manager);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        Do_Movement();
+        Draw(manager, rbr.get_value());
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwMakeContextCurrent(window);
@@ -196,7 +342,48 @@ glm::vec3 convert_coords(GLfloat x, GLfloat y, GLuint width, GLuint height) {
     return glm::vec3((GLfloat)x, (GLfloat)y, 1.0f);
 }
 
-double oldx, oldy;
+bool keys[1024];
+void keyboard_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_F1) {
+        camera.Position = glm::vec3(0, 0, 3);
+        //camera.Yaw = -40;
+        //camera.Pitch = -23.5;
+        camera.updateCameraVectors();
+    }else if (key == GLFW_KEY_F2) {
+        camera.Position = glm::vec3(0, 0, 3);
+        //camera.Yaw = -40;
+        //camera.Pitch = -23.5;
+        camera.updateCameraVectors();
+    }
+    if (key >= 0 && key < 1024)
+    {
+        keys[key] = action == GLFW_PRESS;
+    }
+}
+
+void Do_Movement() {
+    if (keys[GLFW_KEY_W])
+        camera.ProcessKeyboard(FORWARD);
+    if (keys[GLFW_KEY_S])
+        camera.ProcessKeyboard(BACKWARD);
+    if (keys[GLFW_KEY_A])
+        camera.ProcessKeyboard(LEFT);
+    if (keys[GLFW_KEY_D])
+        camera.ProcessKeyboard(RIGHT);
+    if (keys[GLFW_KEY_Z])
+        camera.ProcessKeyboard(DOWN);
+    if (keys[GLFW_KEY_X])
+        camera.ProcessKeyboard(UP);
+    if (keys[GLFW_KEY_Q])
+        camera.ProcessKeyboard(LEFT_ROTATE);
+    if (keys[GLFW_KEY_E])
+        camera.ProcessKeyboard(RIGHT_ROTATE);
+    if (keys[GLFW_KEY_R])
+        camera.ProcessKeyboard(DOWN_ROTATE);
+    if (keys[GLFW_KEY_T])
+        camera.ProcessKeyboard(UP_ROTATE);
+}
+
 void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
     if (action == GLFW_PRESS) {
         double xpos, ypos;
@@ -213,40 +400,16 @@ void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
             {
             case 0: 
             {
-                auto coords = convert_coords(xpos, ypos, W_WIDTH, W_HEIGHT);
-                pf.build(coords);
-                drawer.set_vbo("primitives", pf.get_items());
+                bezier.add_point(glm::vec3(xpos, ypos, 1));
+                drawer.set_vbo("bez_points", bezier.get_points());
                 break;
             }
             case 1:
             {
-                auto coords = convert_coords(xpos, ypos, W_WIDTH, W_HEIGHT);
-                pc.shift(selector.get_item(), coords);
-                drawer.set_vbo("primitives", pf.get_items());
+                bezier.shift_point(glm::vec3(xpos, ypos, 1));
+                drawer.set_vbo("bez_points", bezier.get_points());
                 break;
             }
-            case 5:
-            {
-                auto coords = convert_coords(xpos, ypos, W_WIDTH, W_HEIGHT);
-                //std::cout << pocl.classify(selector.get_item(), coords) << std::endl;
-                break;
-            }
-            case 6:
-            {
-                break;
-            }
-            default:
-                break;
-            }
-
-            oldx = xpos;
-            oldy = ypos;
-        }
-        else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-            switch (mode)
-            {
-            case 0:
-                pf.finish_primitive();
             default:
                 break;
             }
@@ -311,30 +474,23 @@ void InitBO(OpenGLManager* manager)
 
 
 void Init(OpenGLManager* manager) {
+    
     mainShader = Shader();
     mainShader.init_shader("main.vert", "main.frag");
-
-    pf = PrimitiveFabric();
-    selector = Selector(&pf.get_items());
-    pc = PrimitiveChanger();
     drawer = Drawer(&mainShader, "vPos", W_WIDTH, W_HEIGHT);
+    drawer.set_vbo("midp", midp_disp.get_items());
     InitBO(manager);
 
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // белый цвет как цвет заливки
-    //glViewport(0, 0, W_WIDTH, W_HEIGHT);
-    //glMatrixMode(GL_PROJECTION);
-    //glLoadIdentity();
-    //auto c = 1.5;
-    //glOrtho(-c * W_WIDTH / W_HEIGHT, c * W_WIDTH / W_HEIGHT,
-    //        -c, c, -1.0, 1.0);
-    //glOrtho(0, W_WIDTH, 0, W_HEIGHT, -1, 1);
+    glPointSize(5);
     manager->checkOpenGLerror();
 }
 
-void Draw(OpenGLManager* manager) {
+void Draw(OpenGLManager* manager, int mode) {
     glLineWidth(1.0f);
-    drawer.draw(pf.get_items(), "primitives");
-    drawer.draw(frac.get_items(), "frac");
+    if (!storage.empty()) {
+        drawer.draw(storage, "figure", camera);
+    }
+    
     //manager->unbind_framebuffer();
     //mainShader.disable_program();
 }
