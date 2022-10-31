@@ -69,8 +69,7 @@ Drifting in the ocean all alone
 /// ...� ��� ������� �����, �� �� ��������,
 /// ����������, ��� ����� ������ - ��� ����
 /// </summary>
-class Face : public Polygon
-{
+class Face : public primitives::Polygon{
 public:
     Face()
     {
@@ -120,9 +119,8 @@ public:
 class Figure : public HighLevelInterface
 {
 public:
-    Figure()
-    {
-        objects = std::vector<Primitive>();
+    Figure() {
+        objects = std::vector<primitives::Primitive>();
         type = ThreeDTypes::figure;
     }
 
