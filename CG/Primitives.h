@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 #include <string>
 #include <functional>
+#include <vector>
 struct Color {
     glm::vec4 rgba;
     Color() {
@@ -48,13 +49,16 @@ inline double toRadians(double angle) {
 enum Axis{ox, oy, oz};
 
 namespace primitives {
-
+    enum Type {
+        base, point, bezpoint, edge, line, segment, polygon
+    };
     struct Primitive {
     public:
         std::vector<glm::vec3> points;
         int drawing_type;
         glm::vec3 color;
         float width = 1;
+        Type type = base;
         GLint get_points_count() {
             return (GLint)points.size();
         }
@@ -75,6 +79,7 @@ namespace primitives {
             points.push_back(coord);
             this->color = color;
             drawing_type = GL_POINTS;
+            Type type = point;
         }
         static std::string get_string_name() {
             return "Point";
@@ -91,6 +96,7 @@ namespace primitives {
 
             this->drawing_type = GL_POINTS;
             this->color = color;
+            Type type = bezpoint;
         }
     };
 
@@ -100,6 +106,7 @@ namespace primitives {
             points.push_back(coords);
             this->color = color;
             drawing_type = GL_POINTS;
+            Type type = edge;
         }
         Edge(glm::vec3 first, glm::vec3 second, glm::vec3 color, float width = 1) {
             points.push_back(first);
@@ -127,7 +134,7 @@ namespace primitives {
             points.push_back(coords);
             this->color = color;
             drawing_type = GL_POINTS;
-            //this->type = ThreeDTypes::line;
+            Type type = line;
         }
         void push_point(glm::vec3 coords) {
             points.push_back(coords);
@@ -179,6 +186,7 @@ namespace primitives {
             points.push_back(right_point);
             drawing_type = GL_LINES;
             this->color = color;
+            Type type = segment;
         }
         glm::vec3 left() {
             return points[0];
@@ -198,11 +206,13 @@ namespace primitives {
 
     struct Polygon : public Primitive {
     public:
+        glm::vec3 normal;
         Polygon() {}
         Polygon(glm::vec3 coords, glm::vec3 color) {
             points.push_back(coords);
             this->color = color;
             drawing_type = GL_POINTS;
+            Type type = polygon;
         }
         void push_point(glm::vec3 coords) {
             points.push_back(coords);
@@ -215,8 +225,16 @@ namespace primitives {
                 return false;
             }
             drawing_type = GL_LINE_LOOP;
+            calc_normal();
             return true;
-
+        }
+        bool calc_normal() {
+            if (points.size() < 3) {
+                return false;
+            }
+            auto v1 = points[1] - points[0];
+            auto v2 = points[points.size() - 1] - points[0];
+            normal = glm::normalize(glm::cross(v1, v2));
         }
         static std::string get_string_name() {
             return "Polygon";
