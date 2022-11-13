@@ -55,8 +55,9 @@ namespace primitives {
     struct Primitive {
     public:
         std::vector<glm::vec3> points;
+        std::vector<glm::vec3> colors;
+        std::vector<glm::vec2> uv_vec;
         int drawing_type;
-        glm::vec3 color;
         float width = 1;
         Type type = base;
         GLint get_points_count() {
@@ -65,8 +66,12 @@ namespace primitives {
         void push_point(glm::vec2 coords) {
 
         }
+
         bool primitive_is_finished() {
             return true;
+        }
+        void set_uv_vec(std::vector<glm::vec2> uv_vec) {
+            this->uv_vec = uv_vec;
         }
         static std::string get_string_name() {
             return "Primitive";
@@ -74,15 +79,38 @@ namespace primitives {
     };
 
     struct Point : public Primitive {
+    protected:
+        Point(){}
     public:
+        Point(glm::vec3 coord, glm::vec2 uv) {
+            points.push_back(coord);
+            uv_vec.push_back(uv);
+            drawing_type = GL_POINTS;
+            Type type = point;
+        }
         Point(glm::vec3 coord, glm::vec3 color) {
             points.push_back(coord);
-            this->color = color;
+            colors.push_back(color);
             drawing_type = GL_POINTS;
             Type type = point;
         }
         static std::string get_string_name() {
             return "Point";
+        }
+    };
+
+    struct HidingPoint : public primitives::Point {
+    public:
+        enum class Visibility {
+            up, down, invisible
+        };
+        Visibility vmode;
+        HidingPoint(glm::vec3 coord) {
+            this->points.push_back(coord);
+        }
+        HidingPoint(glm::vec3 coord, Visibility vmode) {
+            this->points.push_back(coord);
+            this->vmode = vmode;
         }
     };
 
@@ -95,7 +123,7 @@ namespace primitives {
             this->points.push_back(help_p);
 
             this->drawing_type = GL_POINTS;
-            this->color = color;
+            colors.push_back(color);
             Type type = bezpoint;
         }
     };
@@ -104,14 +132,14 @@ namespace primitives {
     public:
         Edge(glm::vec3 coords, glm::vec3 color) {
             points.push_back(coords);
-            this->color = color;
+            colors.push_back(color);
             drawing_type = GL_POINTS;
             Type type = edge;
         }
         Edge(glm::vec3 first, glm::vec3 second, glm::vec3 color, float width = 1) {
             points.push_back(first);
             push_point(second);
-            this->color = color;
+            colors.push_back(color);
             this->width = width;
         }
         void push_point(glm::vec3 coords) {
@@ -132,12 +160,17 @@ namespace primitives {
         Line() {}
         Line(glm::vec3 coords, glm::vec3 color) {
             points.push_back(coords);
-            this->color = color;
+            colors.push_back(color);
             drawing_type = GL_POINTS;
             Type type = line;
         }
         void push_point(glm::vec3 coords) {
             points.push_back(coords);
+            drawing_type = GL_LINE_STRIP;
+        }
+        void push_point(glm::vec3 coords, glm::vec3 color) {
+            points.push_back(coords);
+            colors.push_back(color);
             drawing_type = GL_LINE_STRIP;
         }
         bool primitive_is_finished() {
@@ -159,9 +192,9 @@ namespace primitives {
         }
 
         Line copy() {
-            auto res = Line(points[0], color);
+            auto res = Line(points[0], colors[0]);
             for (size_t i = 1; i < points.size(); i++) {
-                res.push_point(points[i]);
+                res.push_point(points[i], colors[i]);
             }
             return res;
         }
@@ -185,7 +218,7 @@ namespace primitives {
             points.push_back(left_point);
             points.push_back(right_point);
             drawing_type = GL_LINES;
-            this->color = color;
+            colors.push_back(color);
             Type type = segment;
         }
         glm::vec3 left() {
@@ -203,14 +236,13 @@ namespace primitives {
         }
     };
 
-
     struct Polygon : public Primitive {
     public:
         glm::vec3 normal;
         Polygon() {}
         Polygon(glm::vec3 coords, glm::vec3 color) {
             points.push_back(coords);
-            this->color = color;
+            colors.push_back(color);
             drawing_type = GL_POINTS;
             Type type = polygon;
         }
@@ -241,178 +273,3 @@ namespace primitives {
         }
     };
 }
-
-class PrimitiveFabric {
-    int code = 0;
-    glm::vec3 color;
-    std::vector<primitives::Primitive> primitives;
-    bool prim_finished = true;
-    size_t max_size;
-public:
-    PrimitiveFabric() {
-        color = glm::vec3(1.0f);
-        max_size = 10;
-    }
-    void update_code(int code) {
-        if (this->code == code) {
-            return;
-        }
-        this->code = code;
-        if (!prim_finished) {
-            primitives.erase(primitives.end() - 1);
-        }
-        prim_finished = true;
-    }
-    void update_color(glm::vec3 color) {
-        this->color = color;
-    }
-    void build(glm::vec3 coords) {
-        switch (code)
-        {
-        case 0:
-            create_point(coords);
-            break;
-        case 1:
-            if (prim_finished) {
-                create_edge(coords);
-            }
-            else {
-                primitives::Edge* edge = reinterpret_cast<primitives::Edge*>(&primitives[primitives.size() - 1]);
-                edge->push_point(coords);
-                prim_finished = edge->primitive_is_finished();
-            }
-            break;
-        case 2:
-            if (prim_finished) {
-                create_polygon(coords);
-            }
-            else {
-                primitives::Polygon* polygon = reinterpret_cast<primitives::Polygon*>(&primitives[primitives.size() - 1]);
-                polygon->push_point(coords);
-            }
-        default:
-            break;
-        }
-    }
-    void finish_primitive() {
-        switch (code)
-        {
-        case 0:
-            prim_finished = true;
-            break;
-        case 1:
-        {
-            primitives::Edge* edge = reinterpret_cast<primitives::Edge*>(&primitives[primitives.size() - 1]);
-            prim_finished = edge->primitive_is_finished();
-            break;
-        }
-        case 2: 
-        {
-            primitives::Polygon* polygon = reinterpret_cast<primitives::Polygon*>(&primitives[primitives.size() - 1]);
-            prim_finished = polygon->primitive_is_finished();
-            break;
-        }
-        default:
-            break;
-        }
-    }
-    void create_point(glm::vec3 coord) {
-        if (primitives.size() == max_size) {
-            return;
-        }
-        primitives.push_back(primitives::Point(coord, color));
-        prim_finished = true;
-    }
-    void create_edge(glm::vec3 coords) {
-        if (primitives.size() == max_size) {
-            return;
-        }
-        primitives.push_back(primitives::Edge(coords, color));
-        prim_finished = false;
-    }
-    void create_polygon(glm::vec3 coords) {
-        if (primitives.size() == max_size) {
-            return;
-        }
-        primitives.push_back(primitives::Polygon(coords, color));
-        prim_finished = false;
-    }
-    void clear() {
-        primitives.clear();
-        prim_finished = true;
-    }
-    std::vector<primitives::Primitive>& get_items() {
-        return primitives;
-    }
-    size_t size() {
-        return primitives.size();
-    }
-    size_t get_max_size() {
-        return max_size;
-    }
-};
-
-class Drawer {
-    GLuint vPos;
-    Shader* shader;
-    OpenGLManager* manager;
-    glm::mat4 projection;
-    bool first;
-public:
-    Drawer(){
-    }
-    Drawer(Shader* shader, const char* vPosName, GLuint w_width, GLuint w_height) {
-        this->shader = shader;
-        this->vPos = this->shader->get_attrib_location(vPosName);
-        this->manager = OpenGLManager::get_instance();
-        this->first = true;
-
-        this->projection = glm::ortho(0.0f, (float)w_width, (float)w_height, 0.0f, 1.0f, -1.0f);
-    }
-    void draw(std::vector<Primitive>& primitives, const std::string& buffer_name) {
-        if (primitives.size() == 0) {
-            return;
-        }
-        GLint from = 0;
-        GLint count = 0;
-        shader->use_program();
-        shader->uniformMatrix4fv("projection", projection);
-        glEnableVertexAttribArray(vPos);
-        glBindBuffer(GL_ARRAY_BUFFER, manager->get_buffer_id(buffer_name));
-        glVertexAttribPointer(vPos, 3, GL_FLOAT, GL_FALSE, 0, 0);
-        manager->checkOpenGLerror();
-        for (Primitive& pr : primitives) {
-            if (pr.color.b > 0) {
-                auto a = 1;
-            }
-            glLineWidth(pr.width);
-            count = pr.get_points_count();
-            shader->uniform4f("color", pr.color);
-            glDrawArrays(pr.drawing_type, from, count);
-            from += count;
-        }
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glDisableVertexAttribArray(vPos);
-        shader->disable_program();
-        glLineWidth(1);
-        manager->checkOpenGLerror();
-    }
-    void set_vbo(const std::string& buffer_name, const std::vector<Primitive>& data) {
-        if (data.size() == 0) {
-            return;
-        }
-        std::vector<glm::vec3> ndata;
-        GLuint size = 0;
-        for (auto pr : data) {
-            ndata.insert(ndata.end(), pr.points.begin(), pr.points.end());
-            size += GLuint(sizeof(GLfloat) * pr.points.size() * 3);
-        }
-        if (!first) {
-            manager->refresh_vbo(buffer_name, &ndata[0], size, GL_STATIC_DRAW);
-        }
-        else {
-            manager->init_vbo(buffer_name, &ndata[0], size, GL_STATIC_DRAW);
-            //first = false;
-        }
-    }
-};

@@ -2,6 +2,7 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <string>
+
 struct LightSource {
     glm::vec3 position;
     glm::vec3 ambient;
