@@ -178,6 +178,9 @@ public:
     int get_value() {
         return active;
     }
+    std::string get_label() {
+        return active < 0 ? "" : labels[active];
+    }
 };
 
 class InputFloat {
