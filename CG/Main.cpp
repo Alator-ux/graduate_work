@@ -22,7 +22,7 @@ Shader lampShader;
 Drawer drawer;
 Camera camera;
 void Init(OpenGLManager*);
-void Draw(OpenGLManager*, int);
+void Draw(OpenGLManager*);
 void Release();
 void keyboard_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void Do_Movement();
@@ -65,17 +65,6 @@ int main() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        
-        {
-            ImGui::Begin("Window!");
-            ImGui::Text("Current mode: " + mode);
-            if (button_row.draw()) {
-                vbo_name = button_row.get_label();
-                mode = button_row.get_value();
-            }
-            ImGui::End();
-        }
-
         // Rendering
         ImGui::Render();
         int display_w, display_h;
@@ -84,7 +73,7 @@ int main() {
         glViewport(0, 0, display_w, display_h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         Do_Movement();
-        Draw(manager, button_row.get_value());
+        Draw(manager);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwMakeContextCurrent(window);
@@ -112,7 +101,7 @@ void keyboard_callback(GLFWwindow* window, int key, int scancode, int action, in
     }
     if (key >= 0 && key < 1024)
     {
-        keys[key] = action == GLFW_PRESS;
+        keys[key] = action == GLFW_PRESS || action == GLFW_REPEAT;
     }
 
 }
@@ -126,8 +115,9 @@ void Release() {
 
 void Init(OpenGLManager* manager) {
     wot.init();
+    glEnable(GL_DEPTH_TEST);
 }
 
-void Draw(OpenGLManager* manager, int n) {
+void Draw(OpenGLManager* manager) {
     wot.render();
 }
