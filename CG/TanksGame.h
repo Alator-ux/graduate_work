@@ -8,6 +8,7 @@ class TanksGame {
     Shader shader;
     Model tank;
     PlayerMH camera;
+    Bullet bullet;
     std::vector<Bullet> bullets;
     std::vector<Model> scene;
     GLfloat speed;
@@ -42,7 +43,8 @@ class TanksGame {
             moved = true;
         }
         if (keys[GLFW_KEY_SPACE]) {
-            
+            bullet.ray = Ray(camera.model_pos, camera.Front);
+            bullets.push_back(bullet);
         }
         return moved;
     }
@@ -64,31 +66,43 @@ class TanksGame {
         ObjTexture fieldTexture("images/WOT/Field.png", 'n');
         auto m = Material(fieldTexture);
         auto field = Model("models/WOT/Field.obj", m);
+        field.radius = 0.f;
+        field.center = glm::vec3(-100.f);
 
         ObjTexture christTreeTexture("images/WOT/ChristmasTree.png", 'n');
         auto b = Material(christTreeTexture);
         auto christTree = Model("models/WOT/ChristmasTree.obj", b);
         christTree.mm = glm::translate(glm::mat4(1.f), { -10, 0, 4 });
+        christTree.center = christTree.mm * glm::vec4(christTree.center, 1.f);
 
         ObjTexture barrelTexture("images/WOT/Barrel.png", 'n');
         auto c = Material(barrelTexture);
         auto barrel = Model("models/WOT/Barrel.obj", c);
         barrel.mm = glm::translate(glm::mat4(1.f), { 4, 0, -10 });
+        barrel.center = barrel.mm * glm::vec4(barrel.center, 1.f);
 
         ObjTexture stone("images/WOT/Stone-1.png", 'n');
         auto s = Material(stone);
         auto stone1 = Model("models/WOT/Stone-1.obj", s);
         auto stone2 = Model("models/WOT/Stone-2.obj", s);
         stone1.mm = glm::translate(glm::mat4(1.f), { -6, 0, 4 });
+        stone1.center = stone1.mm * glm::vec4(stone1.center, 1.f);
         stone2.mm = glm::translate(glm::mat4(1.f), { -6, 0, -4 });
+        stone2.center = stone2.mm * glm::vec4(stone2.center, 1.f);
 
         ObjTexture treeTex("images/WOT/Tree.png", 'n');
         
         auto t = Material(treeTex);
         auto tree = Model("models/WOT/Tree.obj", t);
-
         tree.mm = glm::translate(glm::mat4(1.f), {10, 0, 4});
+        tree.center = tree.mm * glm::vec4(tree.center, 1.f);
+
         this->scene = std::vector<Model>{ field, christTree, barrel, stone1, stone2, tree };
+
+        ObjTexture bulletTexture("images/WOT/Grass_Block_TEX.png", 'n');
+        auto bul= Material(bulletTexture);
+        bullet = Bullet("models/WOT/Grass_Block.obj", bul);
+        bullet.mm = glm::scale(bullet.mm, glm::vec3(0.5f));
 
         sun.direction = { 0.f, -1.f, 0.f };
     }
@@ -125,6 +139,18 @@ public:
         shader.uniformMatrix4fv("Model", glm::value_ptr(tank.mm));
 
         tank.render();
+
+        for (int i = 0; i < bullets.size(); i++) {
+            if (bullets[i].checkCollisions(scene)) {
+                bullets.erase(bullets.begin() + i);
+                continue;
+            }
+            bullets[i].center = bullets[i].move();
+            bullets[i].mm = glm::translate(glm::mat4(1.f), bullets[i].center);
+            shader.uniformMatrix4fv("Model", glm::value_ptr(bullets[i].mm));
+            bullets[i].render(1, GL_QUADS);
+        }
+
         for (auto& elem : scene) {
             shader.uniformMatrix4fv("Model", glm::value_ptr(elem.mm));
             elem.render();

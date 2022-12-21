@@ -3,7 +3,7 @@
 #include "ObjMesh.h"
 
 class Model {
-private:
+protected:
     ObjTexture* overrideTextureDiffuse;
     ObjTexture* overrideTextureSpecular;
     OpenGLManager* manager;
@@ -30,6 +30,7 @@ public:
         manager = OpenGLManager::get_instance();
         material = mat;
         hasTexture = true;
+        center = glm::vec3(0.f);
         std::vector<ObjVertex> mesh = loadOBJ(objFile, center);
         radius = glm::distance(glm::vec3(0.f), center);
         meshes.push_back(Mesh(mesh.data(), mesh.size(), NULL, 0));

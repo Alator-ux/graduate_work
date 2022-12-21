@@ -2,9 +2,26 @@
 #include "Camera.h"
 #include "GLM/fwd.hpp"
 #include "Ray.h"
-class Bullet : Model {
+
+class Bullet : public Model {
 public:
     Ray ray;
+    Bullet() {}
+    Bullet(
+        const char* objFile,
+        Material mat
+    ) {
+        manager = OpenGLManager::get_instance();
+        material = mat;
+        hasTexture = true;
+        center = glm::vec3(0.f);
+        std::vector<ObjVertex> mesh = loadOBJ(objFile, center);
+        radius = glm::distance(glm::vec3(0.f), center);
+        meshes.push_back(Mesh(mesh.data(), mesh.size(), NULL, 0));
+    }
+    glm::vec3 move() {
+        return ray.move();
+    }
     bool checkCollisions(const std::vector<Model>& scene) {
         for (auto model : scene) {
             auto models_dist = glm::distance(this->center, model.center);
