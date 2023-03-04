@@ -165,6 +165,7 @@ void rotate_system() {
 Model statue1;
 Model statue2;
 Model cube;
+std::map<std::string, Model*> models;
 void Init(OpenGLManager* manager) {
     drawer = Drawer(W_WIDTH, W_HEIGHT);
     
@@ -172,40 +173,16 @@ void Init(OpenGLManager* manager) {
     shader.init_shader("phong.vert", "phong.frag");
     shaders.push_back(shader);
 
-    Shader shader1 = Shader();
-    shader1.init_shader("toon_shading.vert", "toon_shading.frag");
-    shaders.push_back(shader1);
-
-    Shader shader2 = Shader();
-    shader2.init_shader("rim.vert", "rim.frag");
-    shaders.push_back(shader2);
-
     lampShader.init_shader("lamp.vert", "lamp.frag");
     
-    cube = Model("./models/cube/Cube.obj");
-    ObjTexture tex1("images/WOT/ChristmasTree.png", 'n');
-    Material mat1(tex1);
-    mat1.shininess = 2.f;
-    statue1 = Model("./models/WOT/ChristmasTree.obj", mat1);
-
-    //ObjTexture tex2("./models/buddha/buddha_head.jpg", 'n');
-    //Material mat2(tex2);
-    //statue2 = Model("./models/buddha/buddha_head_ma2.obj", mat2);
-        //Model("./models/buddhist_statue/buddhist statue.obj",
-        //"models/buddhist_statue/mesh_Model_5_u0_v0_diffuse.jpeg", true
+    //models = loadObjModel("./models/Pool", "Pool.obj");
+    models = loadObjModel("./models/cube", "Cube.obj");
 
     PointLight pLight(glm::vec3(5.0f, 10.0f, 15.0f));;
     pLight.position = { 0, 15, 15 };
     pLight.set_atten_zero();
 
     DirectionLight dirLight(glm::vec3(0.f, -1.f, 0.f));
-
-    FlashLight flashLight(glm::vec3(-5.0f, 26.0f, -16.0f));;
-    flashLight.direction = camera.Front;
-    flashLight.diffuse = { 1.0, 0.0, 0.0 };
-    flashLight.specular = { 1.0, 0.0, 0.0 };
-    flashLight.cutOff = 12.5f;
-    pLight.set_atten_zero();
 
     auto projection = glm::perspective(glm::radians(45.f), 1.f, 0.1f, 1000.f);
     auto view = camera.GetViewMatrix();
@@ -216,10 +193,7 @@ void Init(OpenGLManager* manager) {
             shader.uniformMatrix4fv("Projection", glm::value_ptr(projection));
             shader.uniformMatrix4fv("View", glm::value_ptr(view));
             shader.uniformMatrix4fv("Model", glm::value_ptr(model));
-            shader.uniformPointLight(pLight, "pLight.");
             shader.uniformDirectionLight(dirLight, "dirLight.");
-            shader.uniformFlashLight(flashLight, "flashLight.");
-            shader.uniformMaterial(mat1, "material.");
             shader.disable_program();
         }
     }
@@ -242,8 +216,10 @@ void Init(OpenGLManager* manager) {
 void Draw(OpenGLManager* manager, int n) {
     shaders[n].use_program();
     shaders[n].uniformMatrix4fv("View", glm::value_ptr(camera.GetViewMatrix()));
-    //phongShader.uniform3f("viewPos", camera.Position);
-    statue1.render();
+    for (auto it = models.begin(); it != models.end(); it++) {
+        shaders[n].uniformMaterial(it->second->material, "material.");
+        it->second->render(1, GL_QUADS);
+    }
     shaders[n].disable_program();
 
     lampShader.use_program();

@@ -52,53 +52,23 @@ void main()
 {
     vec3 viewDir = normalize(viewPos - FragPos);
 
-    // Point light
-    vec3 lightDir = normalize(pLight.pos - FragPos);
-    vec3 lightReflDir = reflect(-lightDir, Normal);
+    // Direction light
+    vec3 lightDir = -dirLight.direction;
+    vec3 lightReflDir = reflect(lightDir, Normal);
 
     float NdotL = max(dot(Normal, lightDir), 0);
     float RdotV = max(dot(lightReflDir, viewDir), 0);
 
-    vec3 spec = pow(RdotV, material.shininess) * pLight.specular * material.specular;
-    vec3 diff = NdotL * material.diffuse * pLight.diffuse;
-
-    vec3 lc1 = spec + diff;
-    // -------------------
-
-    // Direction light
-    lightDir = dirLight.direction;
-    lightReflDir = reflect(-lightDir, Normal);
-
-    NdotL = max(dot(Normal, lightDir), 0);
-    RdotV = max(dot(lightReflDir, viewDir), 0);
-
-    spec = pow(RdotV, material.shininess) * dirLight.specular * material.specular;
-    diff = NdotL * material.diffuse * dirLight.diffuse;
+    vec3 spec = pow(RdotV, material.shininess) * dirLight.specular * material.specular;
+    vec3 diff = NdotL * material.diffuse * dirLight.diffuse;
 
     vec3 lc2 = spec + diff;
     // -------------------
 
-    // Flash light
-    lightDir = normalize(flashLight.pos - FragPos);
-    float theta = dot(lightDir, -normalize(flashLight.direction));
-    vec3 lc3 = vec3(0.0f);
-    //float cutOff = 1;
-    if(theta > cos(radians(flashLight.cutOff))) {
-        lightReflDir = reflect(-lightDir, Normal);
 
-        NdotL = max(dot(Normal, lightDir), 0);
-        RdotV = max(dot(lightReflDir, viewDir), 0);
-
-        spec = pow(RdotV, material.shininess) * flashLight.specular * material.specular;
-        diff = NdotL * material.diffuse * flashLight.diffuse;
-        lc3 = spec + diff;
-    }
-    // -------------------
-
-
-    vec3 res = lc1;
-    res += pLight.ambient * material.ambient + material.emission;
-    res *= vec3(texture(text, TPos));
+    vec3 res = lc2;
+    res += dirLight.ambient * material.ambient + material.emission;
+    //res *= vec3(texture(text, TPos));
 
     outColor = vec4(min(res, 1.0f), 1.0f);
 }
