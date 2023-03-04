@@ -99,35 +99,6 @@ namespace primitives {
         }
     };
 
-    struct HidingPoint : public primitives::Point {
-    public:
-        enum class Visibility {
-            up, down, invisible
-        };
-        Visibility vmode;
-        HidingPoint(glm::vec3 coord) {
-            this->points.push_back(coord);
-        }
-        HidingPoint(glm::vec3 coord, Visibility vmode) {
-            this->points.push_back(coord);
-            this->vmode = vmode;
-        }
-    };
-
-    struct BezierPoint : public Primitive {
-        BezierPoint(glm::vec3 coord, glm::vec3 color, int offset = 50) {
-            this->points.push_back(coord);
-            auto help_p = glm::vec3(coord.x - offset, coord.y, 1);
-            this->points.push_back(help_p);
-            help_p = glm::vec3(coord.x + offset, coord.y, 1);
-            this->points.push_back(help_p);
-
-            this->drawing_type = GL_POINTS;
-            colors.push_back(color);
-            Type type = bezpoint;
-        }
-    };
-
     struct Edge : public Primitive {
     public:
         Edge(glm::vec3 coords, glm::vec3 color) {
@@ -209,30 +180,6 @@ namespace primitives {
             this->transform([transform_matrix](glm::vec3 p)->glm::vec3 {
                 return transform_matrix * glm::vec4(p.x, p.y, p.z, 1);
                 });
-        }
-    };
-
-    struct Segment : public Primitive {
-    public:
-        Segment(glm::vec3 left_point, glm::vec3 right_point, glm::vec3 color) {
-            points.push_back(left_point);
-            points.push_back(right_point);
-            drawing_type = GL_LINES;
-            colors.push_back(color);
-            Type type = segment;
-        }
-        glm::vec3 left() {
-            return points[0];
-        }
-
-        glm::vec3 right() {
-            return points[1];
-        }
-        bool primitive_is_finished() {
-            return points.size() == 2;
-        }
-        static std::string get_string_name() {
-            return "Segment";
         }
     };
 
