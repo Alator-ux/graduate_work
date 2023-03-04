@@ -1,14 +1,16 @@
 #pragma once
 #include <GLFW/glfw3.h>
-#include <SFML/Graphics/Texture.hpp>
 #include <glm/glm.hpp>
 struct Material {
     ObjTexture texture;
+    ObjTexture* map_Kd;
     glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
     glm::vec3 emission;
+    GLfloat opaque;
     GLfloat shininess;
+    std::string diffuse_map;
     Material(){}
     Material(ObjTexture texture, glm::vec3 ambient = glm::vec3(0.2),
         glm::vec3 diffuse = glm::vec3(1.0), glm::vec3 specular = glm::vec3(1.0),
@@ -20,6 +22,10 @@ struct Material {
         this->specular = specular;
         this->emission = emission;
         this->shininess = shininess;
+    }
+    // TODO очищать что-то еще?
+    ~Material() {
+        delete map_Kd;
     }
     std::string get_texture_name(const std::string& pref = "", const std::string& suf = "") const {
         return pref + "text" + suf;
