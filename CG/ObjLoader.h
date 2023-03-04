@@ -17,66 +17,74 @@ struct ModelConstructInfo {
     std::vector<ObjVertex> vertices;
     unsigned char render_mode;
 };
-Material loadMaterial(const std::string& mtl_path, const std::string& material) {
+void loadMaterial(const std::string& mtl_path, const std::string mtl_fname, const std::string& material, Material& dest) {
     std::stringstream ss;
     std::string line = "";
     std::string prefix = "";
     glm::vec3 temp_vec3;
     GLfloat temp_float;
-    std::ifstream mtl_file(mtl_path);
-    Material res;
+    std::ifstream mtl_file(mtl_path + "/" + mtl_fname);
     if (!mtl_file.is_open())
     {
         throw "ERROR::OBJLOADER::Could not open mtl file.";
     }
-    bool checked = false;
-    while (checked || std::getline(mtl_file, line))
+    bool processing = false;
+    while (std::getline(mtl_file, line))
     {
         ss.clear();
-        ss.str(line);
-        ss >> prefix;
-        if (prefix == "newmtl") {
+        if (line.size() == 0) {
+            prefix.clear();
+        }
+        else {
+            ss.str(line);
+            ss >> prefix;
+        }
+        if (prefix == "#") {
+
+        } else if (prefix == "newmtl") {
+            if (processing) { // Если наткнулись на другой материал во время обработки, то прошлый "закончился"
+                break;
+            }
             std::string mat_name;
             ss >> mat_name;
             if(mat_name != material){
                 continue;
             }
-            checked = true;
+            processing = true; // Нашли нужный материал и начали его считывать
         }
         else if (prefix == "Ka") {
             ss >> temp_vec3.r >> temp_vec3.g >> temp_vec3.b;
-            res.ambient = temp_vec3;
+            dest.ambient = temp_vec3;
         }
         else if (prefix == "Kd") {
             ss >> temp_vec3.r >> temp_vec3.g >> temp_vec3.b;
-            res.diffuse = temp_vec3;
+            dest.diffuse = temp_vec3;
         }
         else if (prefix == "Ks") {
             ss >> temp_vec3.r >> temp_vec3.g >> temp_vec3.b;
-            res.specular = temp_vec3;
+            dest.specular = temp_vec3;
         }
         else if (prefix == "d") {
             ss >> temp_float;
-            res.opaque = temp_float;
+            dest.opaque = temp_float;
         }
         else if (prefix == "Tr") {
             ss >> temp_float;
-            res.opaque = 1.f - temp_float;
+            dest.opaque = 1.f - temp_float;
         }
         else if (prefix == "Ns") {
             ss >> temp_float;
-            res.shininess = temp_float;
+            dest.shininess = temp_float;
         }
         else if (prefix == "map_Kd") {
             std::string map_path;
             ss >> map_path;
-            ObjTexture* tex = new ObjTexture(map_path.c_str(), 'n');
-            res.map_Kd = tex;
+            map_path = mtl_path + "/" + map_path;
+            dest.map_Kd = ObjTexture(map_path.c_str(), 'n');
         }
     }
-    return res;
 }
-std::vector<ObjVertex> build_vertices(std::vector<ObjVertex>& vertices, std::vector<glm::fvec3>& vertex_positions,
+void build_vertices(std::vector<ObjVertex>& vertices, std::vector<glm::fvec3>& vertex_positions,
     std::vector<glm::fvec2>& vertex_texcoords, std::vector<glm::fvec3>& vertex_normals,
     std::vector<GLint>& vertex_position_indicies, std::vector<GLint>& vertex_texcoord_indicies,
     std::vector<GLint>& vertex_normal_indicies) {
@@ -93,14 +101,14 @@ std::vector<ObjVertex> build_vertices(std::vector<ObjVertex>& vertices, std::vec
         }
     }
 
-    vertex_positions = std::vector<glm::fvec3>();
+    /*vertex_positions = std::vector<glm::fvec3>();
     vertex_texcoords = std::vector<glm::fvec2>();
-    vertex_normals = std::vector<glm::fvec3>();
+    vertex_normals = std::vector<glm::fvec3>();*/
     vertex_position_indicies = std::vector<GLint>();
     vertex_texcoord_indicies = std::vector<GLint>();
     vertex_normal_indicies = std::vector<GLint>();
 }
-std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const std::string fname)
+std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const std::string& fname)
 {
     //Vertex portions
     std::vector<glm::fvec3> vertex_positions;
@@ -118,7 +126,7 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
 
     std::stringstream ss;
     std::ifstream obj_file(path + "/" + fname);
-    std::string mtl_path;
+    std::string mtl_fname;
     std::string line = "";
     std::string prefix = "";
     glm::vec3 temp_vec3;
@@ -135,8 +143,13 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
     {
         //Get the prefix of the line
         ss.clear();
-        ss.str(line);
-        ss >> prefix;
+        if (line.size() == 0) {
+            prefix.clear();
+        }
+        else {
+            ss.str(line);
+            ss >> prefix;
+        }
 
         if (prefix == "#")
         {
@@ -145,26 +158,27 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
             
         }
         else if (prefix == "mtllib") {
-            ss >> mtl_path;
-            mtl_path = path + "/" + mtl_path;
+            ss >> mtl_fname;
         }
         else if (prefix == "g") {
             ss >> cur_name;
         }
         else if (prefix == "o")
         {
-
+            ss >> cur_name;
         }
         else if (prefix == "s")
         {
 
         }
-        else if (prefix == "use_mtl")
+        else if (prefix == "usemtl")
         {
             std::string mat_name;
             ss >> mat_name;
-            Material mat = loadMaterial(mtl_path, mat_name);
-            cur.material = mat;
+            loadMaterial(path, mtl_fname, mat_name, cur.material);
+            // позорно проиграл плюсам и сдался. TODO: разобраться и исправить
+            //Material mat(loadMaterial(path, mtl_fname, mat_name));
+            //cur.material = Material(mat);
         }
         else if (prefix == "v") //Vertex position
         {
@@ -224,15 +238,22 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
             std::cout << "Nr of vertices: " << cur.vertices.size() << "\n";
             res[cur_name] = cur;
             cur = ModelConstructInfo();
+            desc_finished = false;
         }
         else
         {
 
         }
     }
-
+    if (desc_finished) {
+        build_vertices(cur.vertices, vertex_positions, vertex_texcoords, vertex_normals, vertex_position_indicies,
+            vertex_texcoord_indicies, vertex_normal_indicies);
+        //DEBUG
+        std::cout << "Nr of vertices: " << cur.vertices.size() << "\n";
+        res[cur_name] = cur;
+    }
 
     //Loaded success
     std::cout << "OBJ file loaded!" << "\n";
-    return vertices;
+    return res;
 }
