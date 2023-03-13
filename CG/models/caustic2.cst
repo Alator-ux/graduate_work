@@ -1,0 +1,20 @@
+<CAUSTICS_GENERATOR>
+<CAUSTICS>
+	<DEPTH value="1.500000"/>
+	<INTENSITY value="0.050000"/>
+	<AMP_FILTER value="30.000000"/>
+	<FREQ_FILTER value="1.500000"/>
+	<TIME_FILTER value="32.000000"/>
+	<NUM_ANIM_FRAMES value="32"/>
+	<CURRENT_ANIM_FRAME value="1"/>
+	<SUBDIVISIONS value="512"/>
+</CAUSTICS>
+<OUTPUT>
+	<SIZE width="1024" height="1024"/>
+	<SUPERSAMPLING value="1"/>
+	<BLURSAMPLING value="5"/>
+	<BGCOLOR r="51" g="76" b="204"/>
+	<PREVIEW value="0"/>
+	<FILENAME text="caustic1"/>
+</OUTPUT>
+</CAUSTICS_GENERATOR>

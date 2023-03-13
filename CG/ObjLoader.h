@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include "Material.h"
 
 struct ObjVertex {
     glm::vec3 position;
@@ -15,6 +16,7 @@ struct ObjVertex {
 struct ModelConstructInfo {
     Material material;
     std::vector<ObjVertex> vertices;
+    std::vector<size_t> lengths;
     unsigned char render_mode;
 };
 void loadMaterial(const std::string& mtl_path, const std::string mtl_fname, const std::string& material, Material& dest) {
@@ -92,11 +94,11 @@ void build_vertices(std::vector<ObjVertex>& vertices, std::vector<glm::fvec3>& v
     for (size_t i = 0; i < vertices.size(); ++i)
     {
         vertices[i].position = vertex_positions[vertex_position_indicies[i] - 1];
-        if (vertex_texcoords.size() != 0)
+        if (vertex_texcoord_indicies.size() != 0)
         {
             vertices[i].texcoord = vertex_texcoords[vertex_texcoord_indicies[i] - 1];
         }
-        if (vertex_normals.size() != 0) {
+        if (vertex_normal_indicies.size() != 0) {
             vertices[i].normal = vertex_normals[vertex_normal_indicies[i] - 1];
         }
     }
@@ -122,7 +124,7 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
 
     std::map<std::string, ModelConstructInfo> res;
     ModelConstructInfo cur;
-    std::string cur_name;
+    std::string cur_name = "n1";
 
     std::stringstream ss;
     std::ifstream obj_file(path + "/" + fname);
@@ -150,7 +152,20 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
             ss.str(line);
             ss >> prefix;
         }
-
+        if (desc_finished && prefix != "f") {
+            build_vertices(cur.vertices, vertex_positions, vertex_texcoords, vertex_normals, vertex_position_indicies,
+                vertex_texcoord_indicies, vertex_normal_indicies);
+            //DEBUG
+            std::cout << "Nr of vertices: " << cur.vertices.size() << "\n";
+            if (res.find(cur_name) != res.end()) {
+                cur_name += 1;
+            }
+            res[cur_name] = cur;
+            cur = ModelConstructInfo();
+            desc_finished = false;
+            //std::cout << "OBJ file loaded!" << "\n";
+            //return res;
+        }
         if (prefix == "#")
         {
             std::string comment;
@@ -199,6 +214,7 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
         {
             desc_finished = true; // После всех "f" либо конец файла, либо следующая модель
             int counter = 0;
+            size_t ps = 1; // poly size
             while (ss >> temp_glint)
             {
                 //Pushing indices into correct arrays
@@ -227,18 +243,21 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
                 }
 
                 //Reset the counter
-                if (counter > 2)
+                if (counter > 2) {
                     counter = 0;
+                    ps++;
+                }
             }
-        }
-        else if (desc_finished) {
-            build_vertices(cur.vertices, vertex_positions, vertex_texcoords, vertex_normals, vertex_position_indicies,
-                vertex_texcoord_indicies, vertex_normal_indicies);
-            //DEBUG
-            std::cout << "Nr of vertices: " << cur.vertices.size() << "\n";
-            res[cur_name] = cur;
-            cur = ModelConstructInfo();
-            desc_finished = false;
+            cur.lengths.push_back(ps);
+            if (ps == 3) {
+                cur.render_mode = GL_TRIANGLES;
+            }
+            else if (ps == 4) {
+                cur.render_mode = GL_QUADS;
+            }
+            else if (ps > 4) {
+                cur.render_mode = GL_POLYGON;
+            }
         }
         else
         {
@@ -250,6 +269,9 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
             vertex_texcoord_indicies, vertex_normal_indicies);
         //DEBUG
         std::cout << "Nr of vertices: " << cur.vertices.size() << "\n";
+        if (res.find(cur_name) != res.end()) {
+            cur_name += '1';
+        }
         res[cur_name] = cur;
     }
 

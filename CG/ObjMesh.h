@@ -1,7 +1,7 @@
 #pragma once
 #include "ObjLoader.h"
 #include "OpenGLWrappers.h"
-
+#include <vector>
 class Mesh
 {
 private:
@@ -13,6 +13,7 @@ private:
     GLuint VAO;
     GLuint VBO;
     GLuint EBO;
+    std::vector<size_t> lengths;
 
     void initVAO()
     {
@@ -53,7 +54,8 @@ public:
         ObjVertex* vertexArray,
         const unsigned& nrOfVertices,
         GLuint* indexArray,
-        const unsigned& nrOfIndices)
+        const unsigned& nrOfIndices,
+        const std::vector<size_t>& lengths)
     {
 
         this->nrOfVertices = nrOfVertices;
@@ -72,6 +74,7 @@ public:
         }
 
         this->initVAO();
+        this->lengths = lengths;
     }
 
     Mesh(const Mesh& obj)
@@ -93,6 +96,7 @@ public:
         }
 
         this->initVAO();
+        this->lengths = obj.lengths;
     }
 
     ~Mesh()
@@ -111,19 +115,23 @@ public:
 
     void render(size_t count, unsigned char mode)
     {
-        OpenGLManager::get_instance()->checkOpenGLerror();
+        OpenGLManager::checkOpenGLerror();
+        size_t from = 0;
         //Bind VAO
         glBindVertexArray(this->VAO);
         //RENDER
         if (this->nrOfIndices == 0) {
             glDrawArraysInstanced(mode, 0, this->nrOfVertices, count);
+            /*for (size_t i = 0; i < lengths.size(); i++) {
+                glDrawArraysInstanced(mode, from, lengths[i], count);
+                from += lengths[i];
+            }*/
         }
         else {
             glDrawElementsInstanced(mode, this->nrOfIndices, GL_UNSIGNED_INT, 0, count);
         }
         //Cleanup
         glBindVertexArray(0);
-        //glUseProgram(0);
-        OpenGLManager::get_instance()->checkOpenGLerror();
+        OpenGLManager::checkOpenGLerror();
     }
 };

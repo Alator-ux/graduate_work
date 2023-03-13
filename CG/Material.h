@@ -1,8 +1,9 @@
 #pragma once
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include "Texture.h"
 struct Material {
-    ObjTexture texture;
+    std::vector<ObjTexture> textures;
     ObjTexture map_Kd;
     glm::vec3 ambient = glm::vec3(0.2f);
     glm::vec3 diffuse = glm::vec3(1.f);
@@ -12,7 +13,7 @@ struct Material {
     GLfloat shininess = 1.f;
     Material(){}
     Material(const Material& other) {
-        this->texture = other.texture;
+        this->textures = other.textures;
         this->map_Kd = other.map_Kd;
         this->ambient = other.ambient;
         this->diffuse = other.diffuse;
@@ -21,11 +22,11 @@ struct Material {
         this->opaque = other.opaque;
         this->shininess = other.shininess;
     }
-    Material(ObjTexture texture, glm::vec3 ambient = glm::vec3(0.2),
+    Material(std::vector<ObjTexture> textures, glm::vec3 ambient = glm::vec3(0.2),
         glm::vec3 diffuse = glm::vec3(1.0), glm::vec3 specular = glm::vec3(1.0),
         glm::vec3 emission = glm::vec3(0.0), GLfloat shininess = 16.0f,
         GLfloat roughless = 0.3) {
-        this->texture = texture;
+        this->textures = textures;
         this->ambient = ambient;
         this->diffuse = diffuse;
         this->specular = specular;
