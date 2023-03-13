@@ -14,6 +14,7 @@
 #include <corecrt_math_defines.h>
 #include "Cube.h"
 #include "ObjModel.h"
+#include "Tools.h"
 const GLuint W_WIDTH = 600;
 const GLuint W_HEIGHT = 600;
 std::vector<Shader> shaders;
@@ -41,6 +42,14 @@ int main() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     glewInit();
+
+    std::vector<glm::vec3> ps;
+    for (size_t i = 1; i <= 13; i++) {
+        ps.push_back({i, 0,0});
+    }
+    BalancedKDTree kdtree(ps);
+    kdtree.print();
+
     auto manager = OpenGLManager::get_instance();
     Init(manager);
 
