@@ -66,11 +66,9 @@
     <ClCompile Include="OpenGLWrappers.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="3DChanger.cpp">
-      <Filter>Исходные файлы\Changers</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+<<<<<<< HEAD
     <ClInclude Include="OpenGLWrappers.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
@@ -83,17 +81,13 @@
     <ClInclude Include="Material.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+=======
+>>>>>>> 880e50c (photon mapping start + balanced kd tree)
     <ClInclude Include="Selector.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="Texture.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Primitives.h">
       <Filter>Файлы заголовков\Drawing\Drawable</Filter>
-    </ClInclude>
-    <ClInclude Include="3DChanger.h">
-      <Filter>Файлы заголовков\Changers</Filter>
     </ClInclude>
     <ClInclude Include="PrimitiveChanger.h">
       <Filter>Файлы заголовков\Changers</Filter>
@@ -110,13 +104,7 @@
     <ClInclude Include="Figure.h">
       <Filter>Файлы заголовков\Drawing\Drawable\3D</Filter>
     </ClInclude>
-    <ClInclude Include="RotationFigure.h">
-      <Filter>Файлы заголовков\Drawing\Drawable\3D</Filter>
-    </ClInclude>
     <ClInclude Include="ThreeDInterface.h">
-      <Filter>Файлы заголовков\Drawing\Drawable\3D</Filter>
-    </ClInclude>
-    <ClInclude Include="FunctionFigure.h">
       <Filter>Файлы заголовков\Drawing\Drawable\3D</Filter>
     </ClInclude>
     <ClInclude Include="Drawer.h">
@@ -154,6 +142,21 @@
     </ClInclude>
     <ClInclude Include="stb_image.h">
       <Filter>Linked</Filter>
+    </ClInclude>
+    <ClInclude Include="PMModel.h">
+      <Filter>Файлы заголовков\Drawing\Drawable</Filter>
+    </ClInclude>
+    <ClInclude Include="PhotonMapping.h">
+      <Filter>Файлы заголовков\Drawing\PhotonMapping</Filter>
+    </ClInclude>
+    <ClInclude Include="Texture.h">
+      <Filter>Файлы заголовков\Drawing</Filter>
+    </ClInclude>
+    <ClInclude Include="Material.h">
+      <Filter>Файлы заголовков\Drawing</Filter>
+    </ClInclude>
+    <ClInclude Include="Tools.h">
+      <Filter>Файлы заголовков\Tools</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -213,9 +216,6 @@
     <Filter Include="Исходные файлы\Widgets">
       <UniqueIdentifier>{4f2960e3-0261-42bc-a1d9-1a2605513065}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Исходные файлы\Changers">
-      <UniqueIdentifier>{5dc91577-069f-453e-a011-230f7d4d9947}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Файлы заголовков">
       <UniqueIdentifier>{e5e069aa-0506-4a82-bfa5-530c6d546cd6}</UniqueIdentifier>
     </Filter>
@@ -251,6 +251,18 @@
     </Filter>
     <Filter Include="Linked\imgui">
       <UniqueIdentifier>{3ea91581-f06a-45db-9f90-c6b2299c5567}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы заголовков\Drawing\PhotonMapping">
+      <UniqueIdentifier>{67ce12d2-c9f9-45a5-8b46-0c98e032a40a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\Drawing">
+      <UniqueIdentifier>{48d78580-bcba-442c-9ac8-427cda3a04a7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\Drawing\Drawable">
+      <UniqueIdentifier>{3e75f0c3-6915-4f00-9128-b1e80b705986}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы заголовков\Tools">
+      <UniqueIdentifier>{791f6802-a1c6-4594-8054-fbbef97f4b12}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

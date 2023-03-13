@@ -4,6 +4,7 @@
 #include <string>
 
 struct LightSource {
+    glm::vec3 pos = glm::vec3(0.f);
     glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;

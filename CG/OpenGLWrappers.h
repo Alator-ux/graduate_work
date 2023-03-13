@@ -177,12 +177,13 @@ public:
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
             std::cout << "Framebuffer not complete!" << std::endl;
     }
-    void checkOpenGLerror() {
+    static void checkOpenGLerror() {
         GLenum errCode;
         // Коды ошибок можно смотреть тут
         // https://www.khronos.org/opengl/wiki/OpenGL_Error
-        if ((errCode = glGetError()) != GL_NO_ERROR)
-            std::cout << "OpenGl error!: " << errCode << std::endl;
+        if ((errCode = glGetError()) != GL_NO_ERROR) {
+            std::cout << "OpenGl error! (" << errCode << "): " << glewGetErrorString(errCode) << std::endl;
+        }
     }
 
     void release() {

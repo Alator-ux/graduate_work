@@ -16,5 +16,5 @@ void main() {
     gl_Position = Projection * View * newPos;
     FragPos = vec3(newPos);
     Normal = mat3(transpose(inverse(Model))) * vNormal;
-	TPos = vTPos;
+	TPos = vec2(vTPos.x, vTPos.y);
 }

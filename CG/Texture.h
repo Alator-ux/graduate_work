@@ -92,7 +92,6 @@ public:
 	
     static void unbind()
     {
-        glActiveTexture(0);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 };
@@ -178,7 +177,19 @@ public:
 };
 
 class ObjTexture : public Texture {
-
+    static void fill_with_img(GLuint& id, CImgTexture& tex, const char flipTexture) {
+        tex.image.RGBtosRGB();
+        if (flipTexture == 'y') {
+            tex.image.mirror('y');
+        }
+        else if (flipTexture == 'x') {
+            tex.image.mirror('x');
+        }
+        glGenTextures(1, &id);
+        glBindTexture(GL_TEXTURE_2D, id);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex.get_width(), tex.get_height(),
+            0, GL_RGB, GL_UNSIGNED_BYTE, (void*)tex.image.data());
+    }
 public:
     ObjTexture() {
 
@@ -186,22 +197,21 @@ public:
     ObjTexture(const ObjTexture& other) {
         this->id = other.id;
     }
+    static ObjTexture get_raw_sample(const char* filename, const char flipTexture) {
+        auto tex = ObjTexture();
+        CImgTexture img(filename);
+        fill_with_img(tex.id, img, flipTexture);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return tex;
+    }
     ObjTexture(const char* filename, const char flipTexture) {
         CImgTexture tex(filename);
-        tex.image.RGBtosRGB();
-        if (flipTexture == 'y') {
-            tex.image.mirror('y');
-        } else if(flipTexture == 'x') {
-            tex.image.mirror('x');
-        }
-        glGenTextures(1, &id);
-        glBindTexture(GL_TEXTURE_2D, id);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tex.get_width(), tex.get_width(),
-            0, GL_RGB, GL_UNSIGNED_BYTE, (void*)tex.image.data());
+        fill_with_img(this->id, tex, flipTexture);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glBindTexture(GL_TEXTURE_2D, 0);
         initialized = true;
     }
 };
