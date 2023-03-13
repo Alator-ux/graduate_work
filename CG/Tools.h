@@ -1,6 +1,7 @@
 #pragma once
 #include <random>
 #include <numeric>
+#include <iostream>
 template <typename T>
 struct Random {
     /// <summary>
@@ -16,63 +17,19 @@ struct Random {
         return from + static_cast<T>(rand()) / (static_cast<T>(RAND_MAX) / static_cast<T>(to - from));
     }
 };
-struct KDTree {
-    struct Vec3Comp {
-        const std::vector<const glm::vec3*>& array;
-        size_t dim;
-        Vec3Comp(size_t dim, const std::vector<const glm::vec3*>& array) : array(array) {
-            this->dim = dim;
-        }
-        inline bool operator()(const size_t& i, const size_t& j) {
-            return (*array[i])[dim] < (*array[j])[dim];
+struct BalancedKDTree {
+    struct Node {
+        glm::vec3 value;
+        Node* left = nullptr;
+        Node* right = nullptr;
+        ~Node() {
+            delete left;
+            delete right;
         }
     };
-    glm::vec3* heap;
+    // glm::vec3** heap; Тотальный проигрыш куче, т.к. непонятен размер.
+    Node root;
     size_t size;
-    /*std::pair<size_t, size_t> find_median(const std::vector<glm::vec3*>& points) { // попоробовать искать по заранее отсортированному
-        glm::vec3 bigp(*points[0]), smallp(*points[0]), average;
-        for (size_t vec_i = 1; vec_i < points.size(); vec_i++) {
-            for (size_t point_i = 0; point_i < 3; point_i++) {
-                average[point_i] += (*points[vec_i])[point_i];
-
-                if ((*points[vec_i])[point_i] > bigp[point_i]) {
-                    bigp[point_i] = (*points[vec_i])[point_i];
-                }
-                if ((*points[vec_i])[point_i] < smallp[point_i]) { // TODO скорее всего заменить на елсе
-                    smallp[point_i] = (*points[vec_i])[point_i];
-                }
-            }
-        }
-        average /= points.size();
-
-        size_t largest_dim = 0;
-        {
-            glm::vec3 dims(
-                std::abs(bigp.x - smallp.x),
-                std::abs(bigp.y - smallp.y),
-                std::abs(bigp.z - smallp.z)
-            );
-            float max = dims[0];
-            for (size_t i = 1; i < 3; i++) {
-                if (dims[i] > max) {
-                    max = dims[i];
-                    largest_dim = i;
-                }
-            }
-        }
-
-        size_t medium_ind = 0;
-        float medium_dist = std::abs((*points[0])[largest_dim] - average[largest_dim]);
-        for (size_t vec_i = 1; vec_i < points.size(); vec_i++) {
-            float cur_dist = std::abs((*points[vec_i])[largest_dim] - average[largest_dim]);
-            if (cur_dist < medium_dist) {
-                medium_dist = cur_dist;
-                medium_ind = vec_i;
-            }
-        }
-
-        return { medium_ind, largest_dim };
-    }*/
     /// <summary>
     /// Возвращает измерение по которому "куб" имеет наибольшую длину
     /// </summary>
@@ -101,16 +58,20 @@ struct KDTree {
             if ((*p)[point_i] > bigp[point_i]) {
                 bigp[point_i] = (*p)[point_i];
             }
-            if ((*p)[point_i] < smallp[point_i]) { // TODO скорее всего заменить на елсе
+            if ((*p)[point_i] < smallp[point_i]){
                 smallp[point_i] = (*p)[point_i];
             }
         }
     }
     void fill_balanced(size_t cur_i, size_t dim, std::vector<const glm::vec3*>& points) {
-        if (points.size() == 1) {// А если 0?
-            set(cur_i, *points[0]);
+        if (points.size() == 0) {
             return;
         }
+        if (points.size() == 1) {// А если 0?
+            set(cur_i - 1, *points[0]);
+            return;
+        }
+
         // Сортировка для нахождения среднего. Сортируем указатели.
         std::sort(points.begin(), points.end(),
             [&dim](const glm::vec3* p1, const glm::vec3* p2) { return (*p1)[dim] < (*p2)[dim]; });
@@ -148,15 +109,16 @@ struct KDTree {
         fill_balanced(cur_i * 2, left_dim, s1); // left
         fill_balanced(cur_i * 2 + 1, right_dim, s2); // right
     }
-    KDTree(const std::vector<glm::vec3>& points) {
+    BalancedKDTree(const std::vector<glm::vec3>& points) {
         size = points.size();
-        heap = new glm::vec3[size];
-
+        //heap = new glm::vec3*[size];
+        
         /*
         * нахождение "куба", захватывающего все точки и заполнение вектор указателей для работы с ними
         * + перевод вектор точек в вектор указателей на точки для дальнейшего удобства
         */
         std::vector<const glm::vec3*> points_pointers(points.size());
+        points_pointers[0] = &points[0];
         glm::vec3 bigp(points[0]), smallp(points[0]);
         for (size_t vec_i = 1; vec_i < points.size(); vec_i++) {
             points_pointers[vec_i] = &points[vec_i];
@@ -164,7 +126,7 @@ struct KDTree {
                 if (points[vec_i][point_i] > bigp[point_i]) {
                     bigp[point_i] = points[vec_i][point_i];
                 }
-                if (points[vec_i][point_i] < smallp[point_i]) { // TODO скорее всего заменить на елсе
+                else { // if (points[vec_i][point_i] < smallp[point_i])
                     smallp[point_i] = points[vec_i][point_i];
                 }
             }
@@ -176,20 +138,19 @@ struct KDTree {
         auto largest_dim = find_largest_dim(bigp, smallp);
 
         fill_balanced(1, largest_dim, points_pointers);
-
-        std::for_each(points_pointers.begin(), points_pointers.end(), [](const glm::vec3* p) { delete p; });
+        //std::for_each(points_pointers.begin(), points_pointers.end(), [](const glm::vec3* p) { delete p; });
     }
-    ~KDTree() {
+    ~BalancedKDTree() {
         //std::for_each(heap, heap + size, [](glm::vec3* pointer) { delete pointer; }); // а мб и нет
-        delete[] heap;
+        //delete[] heap;
     }
     void set(size_t i, const glm::vec3& value) {
-        heap[i] = value;
+        heap[i] = new glm::vec3(value);
     }
-    void set_left(size_t i, const glm::vec3& value) {
-        heap[2 * i] = value;
-    }
-    void set_right(size_t i, const glm::vec3& value) {
-        heap[2 * i + 1] = value;
+    void print() {
+        for (size_t i = 1; i <= size; i++) {
+            std::cout << "Index: " << i << "; value: (" << (*heap)[i - 1].x << "," << (*heap)[i - 1].y << "," << (*heap)[i - 1].z
+                << "); left|right: " << i * 2 << "|" << i * 2 + 1 << std::endl;
+        }
     }
 };
