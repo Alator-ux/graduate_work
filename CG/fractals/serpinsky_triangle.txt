@@ -1,3 +1,0 @@
-FXF--FF--FF 60 right
-F FF
-X --FXF++FXF++FXF--
