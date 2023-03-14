@@ -48,7 +48,6 @@ int main() {
         ps.push_back({i, 0,0});
     }
     BalancedKDTree kdtree(ps);
-    kdtree.print();
 
     auto manager = OpenGLManager::get_instance();
     Init(manager);
