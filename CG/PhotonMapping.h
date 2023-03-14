@@ -8,11 +8,17 @@ class PhotonMapping {
     struct Photon {
         glm::vec3 pos;
         glm::vec3 power;
-        char pi, theta;
-        short flag;
+        Photon(const glm::vec3& pos, const glm::vec3& power){
+            this->pos = pos;
+            this->power = power;
+        }
     };
-    
+    enum class PathType {
+        dif_refl = 0, spec_refl, absorption
+    };
+    std::vector<Photon> stored_photons;
     std::vector<PMModel> scene;
+    std::vector<LightSource> lsources;
     size_t phc; // Emitted photoms capacity
     void emit(const LightSource& ls) {
         size_t ne = 0;// Number of emitted photons
@@ -20,11 +26,12 @@ class PhotonMapping {
             int x, y, z;
             do {
                 x = Random<float>::random(-1.f, 1.f);
-                y = Random<float>::random(-1.f, 1.f);
+                y = Random<float>::random(-1.f, 0.f); // ¬ конкретном случае свет должен светить только вниз Random<float>::random(-1.f, 1.f);
                 z = Random<float>::random(-1.f, 1.f);
             } while (x * x + y * y + z * z > 1.f); // TODO normalize ?
             Ray ray(ls.pos, { x, y, z });
-            trace(ray);
+            auto pp = ls.diffuse; // photon power
+            trace(ray, pp);
             // TODO trace photon from ls pos in dir d
             ne++;
         }
@@ -36,7 +43,7 @@ class PhotonMapping {
     /// <param name="mat">ћатериал поверхности, на которую попал фотон</param>
     /// <param name="ipp">Incident photon power Ч мощность попавшего фотона в RGB </param>
     /// <returns></returns>
-    bool destiny(const Material& mat, glm::vec3& ipp) {
+    PathType destiny(const Material& mat, glm::vec3& ipp) {
         auto max_ipp = std::max(std::max(ipp.r, ipp.g), ipp.b);
         float e = Random<float>::random(0.f, 1.f); // Only for pd + ps <= 1
 
@@ -45,7 +52,7 @@ class PhotonMapping {
         auto pd = max_ipp_d / max_ipp;
         if (e <= pd) {  
             ipp *= mat.diffuse / pd; // diffuse reflection
-            return true;
+            return PathType::dif_refl;
         }
 
         auto ipp_s = mat.specular * ipp;
@@ -53,12 +60,17 @@ class PhotonMapping {
         auto ps = max_ipp_s / max_ipp;
         if (e <= pd + ps) {
             ipp *= mat.specular / ps; // specular reflection
-            return true;
+            return PathType::spec_refl;
         }
 
-        return false;
+        return PathType::absorption;
     }
-    void trace(const Ray& ray) {
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="ray"></param>
+    /// <param name="pp">- photon power</param>
+    void trace(const Ray& ray, glm::vec3& pp) {
         float inter = 0.f;
         glm::vec3 normal;
         Material material;
@@ -79,18 +91,23 @@ class PhotonMapping {
             normal *= -1.f;
         }
         glm::vec3 inter_p = ray.origin + ray.dir * inter;
-        int dest = 0;// destiny(material);
-        switch (dest)
-        {
-        case 0:
-            break; // diffuse reflection
-        case 1:
-            break; // specular reflection
-        case 2:
-            return; // absorption
+        Ray new_ray;
+        PathType dest = destiny(material, pp);
+        switch (dest) {
+        case PathType::dif_refl:
+            stored_photons.push_back(Photon(inter_p, pp));
+            new_ray = ray.reflect_spherical(inter_p, normal);
+            break;
+        case PathType::spec_refl:
+            new_ray = ray.reflect(inter_p, normal);
+            break;
+        case PathType::absorption:
+            stored_photons.push_back(Photon(inter_p, pp)); // TODO проверка на зеркальность?
+            return;
         default:
             break;
         }
+        trace(new_ray, pp);
     }
     float GGX_GFunction(float cosNX, float sqRoughness) // ѕотер€нный свет
     {
@@ -131,7 +148,18 @@ class PhotonMapping {
 
         return glm::max(GCoeff * DCoeff * F * 0.25f / NdotV, 0.f);
     }
-    void build_map() {
-
+    
+public:
+    PhotonMapping(const std::vector<PMModel>& scene, const std::vector<LightSource>& lsources, size_t phc) {
+        this->scene = scene;
+        this->lsources = lsources;
+        this->phc = phc;
+        this->stored_photons = std::vector<Photon>();
+    }
+    std::vector<Photon>* build_map() {
+        for (const LightSource& ls : lsources) {
+            emit(ls);
+        }
+        return &stored_photons;
     }
 };

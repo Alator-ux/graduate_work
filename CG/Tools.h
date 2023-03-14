@@ -2,6 +2,7 @@
 #include <random>
 #include <numeric>
 #include <iostream>
+#include <GLM/ext/matrix_transform.hpp>
 template <typename T>
 struct Random {
     /// <summary>
@@ -17,7 +18,8 @@ struct Random {
         return from + static_cast<T>(rand()) / (static_cast<T>(RAND_MAX) / static_cast<T>(to - from));
     }
 };
-struct BalancedKDTree {
+
+class BalancedKDTree {
     struct Node {
         glm::vec3 value;
         Node* left = nullptr;
@@ -25,10 +27,12 @@ struct BalancedKDTree {
         ~Node() {
             delete left;
             delete right;
+            left = nullptr;
+            right = nullptr;
         }
     };
     // glm::vec3** heap; “отальный проигрыш куче, т.к. непон€тен размер.
-    Node root;
+    Node* root;
     size_t size;
     /// <summary>
     /// ¬озвращает измерение по которому "куб" имеет наибольшую длину
@@ -63,13 +67,14 @@ struct BalancedKDTree {
             }
         }
     }
-    void fill_balanced(size_t cur_i, size_t dim, std::vector<const glm::vec3*>& points) {
+    Node* fill_balanced(size_t dim, std::vector<const glm::vec3*>& points) {
         if (points.size() == 0) {
-            return;
+            return nullptr;
         }
-        if (points.size() == 1) {// ј если 0?
-            set(cur_i - 1, *points[0]);
-            return;
+        Node* node = new Node();
+        if (points.size() == 1) {
+            node->value = *points[0];
+            return node;
         }
 
         // —ортировка дл€ нахождени€ среднего. —ортируем указатели.
@@ -105,10 +110,12 @@ struct BalancedKDTree {
         size_t left_dim = find_largest_dim(left_bigp, left_smallp);
         size_t right_dim = find_largest_dim(right_bigp, right_smallp);
 
-        set(cur_i - 1, (*medium)); // смещение индкса влево, т.к. изначально передаетс€ единица дл€ корректного умножени€
-        fill_balanced(cur_i * 2, left_dim, s1); // left
-        fill_balanced(cur_i * 2 + 1, right_dim, s2); // right
+        node->value = *medium;
+        node->left = fill_balanced(left_dim, s1); // left
+        node->right = fill_balanced(right_dim, s2); // right
+        return node;
     }
+public:
     BalancedKDTree(const std::vector<glm::vec3>& points) {
         size = points.size();
         //heap = new glm::vec3*[size];
@@ -137,20 +144,10 @@ struct BalancedKDTree {
         */
         auto largest_dim = find_largest_dim(bigp, smallp);
 
-        fill_balanced(1, largest_dim, points_pointers);
-        //std::for_each(points_pointers.begin(), points_pointers.end(), [](const glm::vec3* p) { delete p; });
+        root = fill_balanced(largest_dim, points_pointers);
     }
     ~BalancedKDTree() {
-        //std::for_each(heap, heap + size, [](glm::vec3* pointer) { delete pointer; }); // а мб и нет
-        //delete[] heap;
-    }
-    void set(size_t i, const glm::vec3& value) {
-        heap[i] = new glm::vec3(value);
-    }
-    void print() {
-        for (size_t i = 1; i <= size; i++) {
-            std::cout << "Index: " << i << "; value: (" << (*heap)[i - 1].x << "," << (*heap)[i - 1].y << "," << (*heap)[i - 1].z
-                << "); left|right: " << i * 2 << "|" << i * 2 + 1 << std::endl;
-        }
+        delete root;
+        root = nullptr;
     }
 };
