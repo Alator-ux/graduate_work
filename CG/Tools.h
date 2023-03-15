@@ -1,10 +1,24 @@
 #pragma once
 #include <random>
 #include <numeric>
+#include <ctime>
 #include <iostream>
 #include <GLM/ext/matrix_transform.hpp>
 template <typename T>
 struct Random {
+    /// <summary>
+    /// ”станавливает текущим зерном текущее врем€
+    /// </summary>
+    static void set_seed() {
+        std::srand(static_cast <unsigned> (std::time(0)));
+    }
+    /// <summary>
+    /// ”станавливает текущим зерном переданный параметр
+    /// </summary>
+    /// <param name="seed"></param>
+    static void set_seed(unsigned seed) {
+        std::srand(seed);
+    }
     /// <summary>
     /// ¬озвращает случайное число от 0.0 до 1.0 включительно
     /// </summary>
@@ -16,6 +30,14 @@ struct Random {
     /// </summary>
     static T random(T from, T to) {
         return from + static_cast<T>(rand()) / (static_cast<T>(RAND_MAX) / static_cast<T>(to - from));
+    }
+};
+
+struct FloatUD {
+    FloatUD(float from, float to) {
+        std::random_device dev;
+        std::mt19937 rng(dev());
+        std::uniform_int_distribution<std::mt19937::result_type> dist6(1, 6);
     }
 };
 

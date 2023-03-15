@@ -4,12 +4,13 @@
 #include <string>
 
 struct LightSource {
-    glm::vec3 pos = glm::vec3(0.f);
+    glm::vec3 position;
     glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
-    LightSource(glm::vec3 ambient = glm::vec3(1.0),
+    LightSource(glm::vec3 position = glm::vec3(0.f), glm::vec3 ambient = glm::vec3(1.0),
         glm::vec3 diffuse = glm::vec3(1.0), glm::vec3 specular = glm::vec3(1.0)) {
+        this->position = position;
         this->ambient = ambient;
         this->diffuse = diffuse;
         this->specular = specular;
@@ -26,7 +27,6 @@ struct LightSource {
 };
 
 struct PointLight : public LightSource {
-    glm::vec3 position;
     glm::vec3 attenuation;
     PointLight(glm::vec3 position = glm::vec3(0.0), glm::vec3 ambient = glm::vec3(1.0),
         glm::vec3 diffuse = glm::vec3(1.0), glm::vec3 specular = glm::vec3(1.0),

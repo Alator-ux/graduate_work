@@ -93,7 +93,11 @@ void build_vertices(std::vector<ObjVertex>& vertices, std::vector<glm::fvec3>& v
     vertices.resize(vertex_position_indicies.size(), ObjVertex());
     for (size_t i = 0; i < vertices.size(); ++i)
     {
-        vertices[i].position = vertex_positions[vertex_position_indicies[i] - 1];
+        GLint pos_ind = vertex_position_indicies[i] - 1;
+        if (pos_ind < 0) {
+            pos_ind = vertex_positions.size() + pos_ind + 1;
+        }
+        vertices[i].position = vertex_positions[pos_ind];
         if (vertex_texcoord_indicies.size() != 0)
         {
             vertices[i].texcoord = vertex_texcoords[vertex_texcoord_indicies[i] - 1];
@@ -238,7 +242,8 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
                 }
                 else if (ss.peek() == ' ')
                 {
-                    ++counter;
+                    //++counter; //TODO сделать нормально
+                    ps++;
                     ss.ignore(1, ' ');
                 }
 
