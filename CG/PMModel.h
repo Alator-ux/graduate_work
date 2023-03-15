@@ -10,7 +10,7 @@ struct Ray {
     Ray() {};
     Ray(glm::vec3 origin, glm::vec3 dir) {
         this->origin = origin;
-        this->dir = dir;
+        this->dir = glm::normalize(dir);
     }
     Ray reflect_spherical(const glm::vec3& from, const glm::vec3& normal) const {
         float e1 = Random<float>::random();
@@ -18,7 +18,7 @@ struct Ray {
         float theta = std::pow(std::cos(std::sqrt(e1)), -1.f);
         float phi = 2 * M_PI * e2;
         glm::vec3 new_dir;
-        float r = glm::distance(from, normal);
+        float r = glm::length(normal);
         float sin_theta = sin(theta);
         new_dir.x = r * sin_theta * cos(phi);
         new_dir.y = r * sin_theta * sin(phi);
@@ -46,7 +46,7 @@ float eps = 0.0001f;
 class PMModel {
     ModelConstructInfo mci;
     bool traingle_intersection(const Ray& ray, const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, float& out) const {
-        out = -1.f;
+        out = 0.f;
         glm::vec3 edge1 = p1 - p0;
         glm::vec3 edge2 = p2 - p0;
         glm::vec3 h = glm::cross(ray.dir, edge2);
@@ -79,7 +79,7 @@ class PMModel {
     }
 public:
     PMModel(const ModelConstructInfo& mci) {
-        //this->mci = mci;
+        this->mci = mci;
     }
    bool intersection(const Ray& ray, float& intersection, glm::vec3& normal) const {
         intersection = 0.f;
@@ -89,6 +89,26 @@ public:
                 float temp = 0.f;
                 bool succ = traingle_intersection(ray, mci.vertices[i].position, mci.vertices[i + 1].position,
                     mci.vertices[i + 2].position, temp);
+                if (succ && intersection == 0 || temp < intersection) {
+                    intersection = temp;
+                    inter_ind = i;
+                }
+            }
+        }
+        else if (mci.render_mode == GL_QUADS) {
+            for (size_t i = 0; i < mci.vertices.size(); i += 4) {
+                float temp = 0.f;
+                bool succ = traingle_intersection(ray, mci.vertices[i].position, mci.vertices[i + 1].position,
+                    mci.vertices[i + 3].position, temp);
+                if (succ && intersection == 0 || temp < intersection) {
+                    intersection = temp;
+                    inter_ind = i;
+                    continue;
+                }
+
+                temp = 0.f;
+                succ = traingle_intersection(ray, mci.vertices[i + 1].position, mci.vertices[i + 2].position,
+                    mci.vertices[i + 3].position, temp);
                 if (succ && intersection == 0 || temp < intersection) {
                     intersection = temp;
                     inter_ind = i;

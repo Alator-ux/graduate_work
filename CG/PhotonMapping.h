@@ -5,6 +5,7 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 class PhotonMapping {
+public:
     struct Photon {
         glm::vec3 pos;
         glm::vec3 power;
@@ -13,6 +14,7 @@ class PhotonMapping {
             this->power = power;
         }
     };
+private:
     enum class PathType {
         dif_refl = 0, spec_refl, absorption
     };
@@ -23,13 +25,13 @@ class PhotonMapping {
     void emit(const LightSource& ls) {
         size_t ne = 0;// Number of emitted photons
         while (ne < phc) {
-            int x, y, z;
+            float x, y, z;
             do {
                 x = Random<float>::random(-1.f, 1.f);
                 y = Random<float>::random(-1.f, 0.f); // В конкретном случае свет должен светить только вниз Random<float>::random(-1.f, 1.f);
                 z = Random<float>::random(-1.f, 1.f);
             } while (x * x + y * y + z * z > 1.f); // TODO normalize ?
-            Ray ray(ls.pos, { x, y, z });
+            Ray ray(ls.position, glm::normalize(glm::vec3(x, y, z)));
             auto pp = ls.diffuse; // photon power
             trace(ray, pp);
             // TODO trace photon from ls pos in dir d
@@ -78,7 +80,7 @@ class PhotonMapping {
             float temp_inter;
             glm::vec3 temp_normal;
             bool succ = model.intersection(ray, temp_inter, temp_normal);
-            if (succ && inter == 0.f || temp_inter < inter) {
+            if (succ && (inter == 0.f || temp_inter < inter)) {
                 inter = temp_inter;
                 normal = temp_normal;
                 material = model.get_material();
@@ -134,7 +136,7 @@ class PhotonMapping {
         return F0 + (glm::vec3(1.f) - F0) * pow(1.f - cosNL, 5.f);
     }
     glm::vec3 brdf(float HdotV, float NdotL, float NdotV, float NdotH, glm::vec3 F, float roughness) {
-        glm::vec3 F = FresnelSchlick(HdotV, glm::vec3(0.f)); // материал
+        glm::vec3 Ff = FresnelSchlick(HdotV, glm::vec3(0.f)); // материал
         auto ck = CookTorrance_GGX(NdotL, NdotV, NdotH, F, roughness);
         // TODO доделать
     }

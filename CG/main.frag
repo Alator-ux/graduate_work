@@ -10,5 +10,5 @@ layout (location = 0) out vec4 outColor;
 
 void main()
 {
-    outColor = texture(text, TPos);
+    outColor = vec4(1.f);
 }

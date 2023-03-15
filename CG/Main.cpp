@@ -8,13 +8,12 @@
 #include <imgui_impl_glfw.h>
 #include "Widgets.h"
 #include "Drawer.h"
-#include "FigureBuilder.h"
 #include "Camera.h"
 #include "Texture.h"
-#include <corecrt_math_defines.h>
-#include "Cube.h"
 #include "ObjModel.h"
 #include "Tools.h"
+#include "PMModel.h"
+#include "PhotonMapping.h"
 const GLuint W_WIDTH = 600;
 const GLuint W_HEIGHT = 600;
 std::vector<Shader> shaders;
@@ -42,12 +41,6 @@ int main() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     glewInit();
-
-    std::vector<glm::vec3> ps;
-    for (size_t i = 1; i <= 13; i++) {
-        ps.push_back({i, 0,0});
-    }
-    BalancedKDTree kdtree(ps);
 
     auto manager = OpenGLManager::get_instance();
     Init(manager);
@@ -152,118 +145,50 @@ void Release() {
     OpenGLManager::get_instance()->release();
 }
 
-Model statue1;
-Model statue2;
-Model cube;
-std::map<std::string, Model*> models;
+size_t pmpointcount;
 void Init(OpenGLManager* manager) {
+    Random<unsigned>::set_seed();
     drawer = Drawer(W_WIDTH, W_HEIGHT);
     
     Shader shader = Shader();
-    shader.init_shader("phong.vert", "phong.frag");
+    shader.init_shader("main.vert", "main.frag");
     shaders.push_back(shader);
 
-    lampShader.init_shader("lamp.vert", "lamp.frag");
-    
-    //models = loadObjModel("./models/Pool", "Pool.obj");
-    //models = loadObjModel("./models/cube", "Cube.obj");
-    auto tex = ObjTexture::get_raw_sample("./models/background_001.jpg", 'n');
-    /*models = loadObjModel("./models/sand_beach", "model.obj");
-    for (auto it = models.begin(); it != models.end(); it++) {
-        it->second->mm = glm::rotate(it->second->mm, glm::radians(90.f), glm::vec3(1.f, 0.f, 0.f));
-    }    */
-
-    auto temp_mm = loadObjModel("./models/cornell_box", "cornellbox-water2.obj"); // temp model map
-    /* {
-        glBindTexture(GL_TEXTURE_2D, tex.id);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        ObjTexture::unbind();
-        tex.initialized = true;
-    }
-    temp_mm.begin()->second->material.map_Kd = tex;*/
-    temp_mm.begin()->second->mm = glm::translate(temp_mm.begin()->second->mm, glm::vec3(10.f, 5.f, -5.f));
-    temp_mm.begin()->second->mm = glm::scale(temp_mm.begin()->second->mm, glm::vec3(10.f));
-    models.insert(temp_mm.begin(), temp_mm.end());
-
-
-    tex = ObjTexture::get_raw_sample("./models/caustic_002.jpg", 'n');
-    {
-        glBindTexture(GL_TEXTURE_2D, tex.id);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-        ObjTexture::unbind();
-        tex.initialized = true;
-    }
-    auto tex2 = ObjTexture::get_raw_sample("./models/caustic_003.jpg", 'n');
-    {
-        glBindTexture(GL_TEXTURE_2D, tex2.id);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-        ObjTexture::unbind();
-        tex2.initialized = true;
-    }
-
-    for (auto it = models.begin(); it != models.end(); it++) {
-        it->second->material.textures.push_back(tex);
-        it->second->material.textures.push_back(tex2);
-    }
-    PointLight pLight(glm::vec3(5.0f, 10.0f, 15.0f));;
-    pLight.position = { 0, 15, 15 };
-    pLight.set_atten_zero();
-
-    DirectionLight dirLight(glm::vec3(0.f, -1.f, 0.f), glm::vec3(0.2f));
-
-    auto projection = glm::perspective(glm::radians(45.f), 1.f, 0.1f, 10000.f);
-    auto view = camera.GetViewMatrix();
-    auto model = glm::mat4(1.f);
-    {
-        for (auto shader : shaders) {
-            shader.use_program();
-            shader.uniformMatrix4fv("Projection", glm::value_ptr(projection));
-            shader.uniformMatrix4fv("View", glm::value_ptr(view));
-            //shader.uniformMatrix4fv("Model", glm::value_ptr(model));
-            shader.uniformDirectionLight(dirLight, "dirLight.");
-            shader.uniformMaterial(models.begin()->second->material, "material.");
-            shader.disable_program();
+    glm::vec3 lspos(0.f);
+    auto map = loadOBJ("./models/cornell_box_original", "CornellBox-Original.obj");
+    std::vector<PMModel> scene;
+    for (auto& kv : map) {
+        if (kv.first == "light") {
+            std::for_each(kv.second.vertices.begin(), kv.second.vertices.end(), [&lspos](const ObjVertex& vert) {lspos += vert.position;});
+            lspos /= kv.second.vertices.size();
         }
+        auto m = PMModel(kv.second);
+        scene.push_back(m);
     }
-    {
-        lampShader.use_program();
-        lampShader.uniformMatrix4fv("Projection", glm::value_ptr(projection));
-        lampShader.uniformMatrix4fv("View", glm::value_ptr(view));
-        auto lampLoc = glm::translate(model, pLight.position);
-        lampLoc = glm::scale(lampLoc, glm::vec3(1.f));
-        lampShader.uniformMatrix4fv("Model", glm::value_ptr(lampLoc));
-        lampShader.disable_program();
-    }
+    std::vector<LightSource> lssources({ PointLight(lspos) });
+    auto pm = PhotonMapping(scene, lssources, 10);
+    auto pmap = pm.build_map();
+    pmpointcount = pmap->size();
+    std::vector<glm::vec3> points;
+    std::for_each(pmap->begin(), pmap->end(), [&points](const PhotonMapping::Photon& ph) {points.push_back(ph.pos);});
+    manager->init_vbo("pm", &points[0], sizeof(glm::vec3) * points.size(), GL_STATIC_DRAW);
 
+    shaders[0].uniformMatrix4fv("Model", glm::value_ptr(glm::mat4(1.f)));
+    shaders[0].uniformMatrix4fv("Projection", glm::value_ptr(glm::perspective(glm::radians(60.f), (float)W_WIDTH / W_HEIGHT, 0.1f, 1000.f)));
 
     glEnable(GL_DEPTH_TEST);
     glClearColor(0, 0, 0, 1);
     manager->checkOpenGLerror();
 }
 void Draw(int n, float fcspeed, float scspeed, double time) {
+    auto manager = OpenGLManager::get_instance();
     shaders[n].use_program();
     shaders[n].uniformMatrix4fv("View", glm::value_ptr(camera.GetViewMatrix()));
-    shaders[n].uniform1f("time", time);
-    shaders[n].uniform1f("fcSpeed", fcspeed);
-    shaders[n].uniform1f("scSpeed", scspeed);
-    OpenGLManager::checkOpenGLerror();
-    for (auto it = models.begin(); it != models.end(); it++) {
-        shaders[n].uniformMaterial(it->second->material, "material.");
-        shaders[n].uniformMatrix4fv("Model", glm::value_ptr(it->second->mm));
-        shaders[n].uniform1i("text", 0);
-        shaders[n].uniform1i("caustic1", 1);
-        shaders[n].uniform1i("caustic2", 2);
-        it->second->render(1);
-    }
+    auto vpos = shaders[n].get_attrib_location("vPos");
+    glEnableVertexAttribArray(vpos);
+    glBindBuffer(GL_ARRAY_BUFFER, manager->get_buffer_id("pm"));
+    glVertexAttribPointer(vpos, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glDrawArrays(GL_POINTS, 0, pmpointcount);
     shaders[n].disable_program();
     OpenGLManager::checkOpenGLerror();
     /*lampShader.use_program();
