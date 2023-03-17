@@ -23,7 +23,8 @@ struct Ray {
         new_dir.x = r * sin_theta * cos(phi);
         new_dir.y = r * sin_theta * sin(phi);
         new_dir.z = r * cos(theta);
-        return { from, new_dir };
+        Ray res(from, new_dir);
+        return res;
     }
     Ray reflect(glm::vec3 from, glm::vec3 normal) const {
         glm::vec3 refl_dir = 2.f * normal * glm::dot(dir, normal) - dir; // TODO или наоборот? затестить
@@ -45,7 +46,8 @@ struct Ray {
 float eps = 0.0001f;
 class PMModel {
     ModelConstructInfo mci;
-    bool traingle_intersection(const Ray& ray, const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, float& out) const {
+    bool traingle_intersection(const Ray& ray, bool in_object, const glm::vec3& p0,
+        const glm::vec3& p1, const glm::vec3& p2, float& out) const {
         out = 0.f;
         glm::vec3 edge1 = p1 - p0;
         glm::vec3 edge2 = p2 - p0;
@@ -81,14 +83,14 @@ public:
     PMModel(const ModelConstructInfo& mci) {
         this->mci = mci;
     }
-   bool intersection(const Ray& ray, float& intersection, glm::vec3& normal) const {
+   bool intersection(const Ray& ray, bool in_object, float& intersection, glm::vec3& normal) const {
         intersection = 0.f;
         size_t inter_ind = 0;
         if (mci.render_mode == GL_TRIANGLES) {
             for (size_t i = 0; i < mci.vertices.size(); i += 3) {
                 float temp = 0.f;
-                bool succ = traingle_intersection(ray, mci.vertices[i].position, mci.vertices[i + 1].position,
-                    mci.vertices[i + 2].position, temp);
+                bool succ = traingle_intersection(ray, in_object, mci.vertices[i].position, 
+                    mci.vertices[i + 1].position, mci.vertices[i + 2].position, temp);
                 if (succ && intersection == 0 || temp < intersection) {
                     intersection = temp;
                     inter_ind = i;
@@ -98,8 +100,8 @@ public:
         else if (mci.render_mode == GL_QUADS) {
             for (size_t i = 0; i < mci.vertices.size(); i += 4) {
                 float temp = 0.f;
-                bool succ = traingle_intersection(ray, mci.vertices[i].position, mci.vertices[i + 1].position,
-                    mci.vertices[i + 3].position, temp);
+                bool succ = traingle_intersection(ray, in_object, mci.vertices[i].position, 
+                    mci.vertices[i + 1].position, mci.vertices[i + 3].position, temp);
                 if (succ && intersection == 0 || temp < intersection) {
                     intersection = temp;
                     inter_ind = i;
@@ -107,8 +109,8 @@ public:
                 }
 
                 temp = 0.f;
-                succ = traingle_intersection(ray, mci.vertices[i + 1].position, mci.vertices[i + 2].position,
-                    mci.vertices[i + 3].position, temp);
+                succ = traingle_intersection(ray, in_object, mci.vertices[i + 1].position,
+                    mci.vertices[i + 2].position,mci.vertices[i + 3].position, temp);
                 if (succ && intersection == 0 || temp < intersection) {
                     intersection = temp;
                     inter_ind = i;

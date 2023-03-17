@@ -33,14 +33,6 @@ struct Random {
     }
 };
 
-struct FloatUD {
-    FloatUD(float from, float to) {
-        std::random_device dev;
-        std::mt19937 rng(dev());
-        std::uniform_int_distribution<std::mt19937::result_type> dist6(1, 6);
-    }
-};
-
 class BalancedKDTree {
     struct Node {
         glm::vec3 value;
@@ -171,5 +163,59 @@ public:
     ~BalancedKDTree() {
         delete root;
         root = nullptr;
+    }
+};
+
+template<typename T>
+class Stack
+{
+    T* arr;
+    int top;
+    int capacity;
+    void resize() {
+        T* newarr = new T[capacity * 2];
+        std::memcpy(newarr, arr, sizeof(T) * capacity);
+        delete[] arr;
+        arr = newarr;
+        capacity *= 2;
+    }
+public:
+    Stack(int size = 10) {
+        arr = new T[size];
+        capacity = size;
+        top = -1;
+    }
+    ~Stack() {
+        delete[] arr;
+    }
+    void push(T elem) {
+        if (top == capacity - 1)
+        {
+            resize();
+        }
+        arr[++top] = elem;
+    }
+    T pop() {
+        if (is_empty())
+        {
+            throw std::exception("Stack is empty");
+        }
+        return arr[top--];
+    }
+    T peek(size_t i = 0) {
+        if (is_empty())
+        {
+            throw std::exception("Stack is empty");
+        }
+        if (top - i < 0) {
+            throw std::exception(top - i + " < 0");
+        }
+        return arr[top - i];
+    }
+    int size() {
+        return top + 1;
+    }
+    bool is_empty() {
+        return top == -1;
     }
 };

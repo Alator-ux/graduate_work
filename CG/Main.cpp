@@ -155,7 +155,7 @@ void Init(OpenGLManager* manager) {
     shaders.push_back(shader);
 
     glm::vec3 lspos(0.f);
-    auto map = loadOBJ("./models/cornell_box_original", "CornellBox-Original.obj");
+    auto map = loadOBJ("./models/cornell_box", "cornellbox-water2.obj");
     std::vector<PMModel> scene;
     for (auto& kv : map) {
         if (kv.first == "light") {
@@ -166,15 +166,17 @@ void Init(OpenGLManager* manager) {
         scene.push_back(m);
     }
     std::vector<LightSource> lssources({ PointLight(lspos) });
-    auto pm = PhotonMapping(scene, lssources, 10);
+    auto pm = PhotonMapping(scene, lssources, 100000);
     auto pmap = pm.build_map();
     pmpointcount = pmap->size();
     std::vector<glm::vec3> points;
     std::for_each(pmap->begin(), pmap->end(), [&points](const PhotonMapping::Photon& ph) {points.push_back(ph.pos);});
     manager->init_vbo("pm", &points[0], sizeof(glm::vec3) * points.size(), GL_STATIC_DRAW);
 
+    shaders[0].use_program();
     shaders[0].uniformMatrix4fv("Model", glm::value_ptr(glm::mat4(1.f)));
     shaders[0].uniformMatrix4fv("Projection", glm::value_ptr(glm::perspective(glm::radians(60.f), (float)W_WIDTH / W_HEIGHT, 0.1f, 1000.f)));
+    shaders[0].disable_program();
 
     glEnable(GL_DEPTH_TEST);
     glClearColor(0, 0, 0, 1);

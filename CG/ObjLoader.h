@@ -66,6 +66,10 @@ void loadMaterial(const std::string& mtl_path, const std::string mtl_fname, cons
             ss >> temp_vec3.r >> temp_vec3.g >> temp_vec3.b;
             dest.specular = temp_vec3;
         }
+        else if (prefix == "Ke") {
+            ss >> temp_vec3.r >> temp_vec3.g >> temp_vec3.b;
+            dest.emission = temp_vec3;
+        }
         else if (prefix == "d") {
             ss >> temp_float;
             dest.opaque = temp_float;
@@ -77,6 +81,10 @@ void loadMaterial(const std::string& mtl_path, const std::string mtl_fname, cons
         else if (prefix == "Ns") {
             ss >> temp_float;
             dest.shininess = temp_float;
+        }
+        else if (prefix == "Ni") {
+            ss >> temp_float;
+            dest.refr_index = temp_float;
         }
         else if (prefix == "map_Kd") {
             std::string map_path;
@@ -162,7 +170,7 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
             //DEBUG
             std::cout << "Nr of vertices: " << cur.vertices.size() << "\n";
             if (res.find(cur_name) != res.end()) {
-                cur_name += 1;
+                cur_name += '1';
             }
             res[cur_name] = cur;
             cur = ModelConstructInfo();
@@ -242,8 +250,12 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
                 }
                 else if (ss.peek() == ' ')
                 {
-                    //++counter; //TODO сделать нормально
-                    ps++;
+                    if (counter == 0) {
+                        ps++; // ≈сли модель содержит описание вида f v v v
+                    }
+                    else {
+                        counter++; // ≈сли модель содержит описание вида f v/vt/vn v/vt/vn v/vt/vn
+                    }
                     ss.ignore(1, ' ');
                 }
 
