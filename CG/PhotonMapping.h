@@ -2,6 +2,7 @@
 #include "Light.h"
 #include "Tools.h"
 #include "PMModel.h"
+#include <stack>
 #define _USE_MATH_DEFINES
 #include <math.h>
 class PhotonMapping {
@@ -16,13 +17,17 @@ public:
     };
 private:
     enum class PathType {
-        dif_refl = 0, spec_refl, absorption
+        dif_refl = 0, spec_refl, absorption, refr
     };
     std::vector<Photon> stored_photons;
+    Stack<const Material&> mediums;
     std::vector<PMModel> scene;
     std::vector<LightSource> lsources;
     size_t phc; // Emitted photoms capacity
     void emit(const LightSource& ls) {
+        Material ls_medium;
+        ls_medium.refr_index = 1.f;
+        mediums.push(ls_medium);
         size_t ne = 0;// Number of emitted photons
         while (ne < phc) {
             float x, y, z;
@@ -33,35 +38,64 @@ private:
             } while (x * x + y * y + z * z > 1.f); // TODO normalize ?
             Ray ray(ls.position, glm::normalize(glm::vec3(x, y, z)));
             auto pp = ls.diffuse; // photon power
-            trace(ray, pp);
+            trace(ray, false, pp);
             // TODO trace photon from ls pos in dir d
             ne++;
         }
         //scale power of stored photons with 1/ne
     }
     /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="refr_index1"> - refractive index of "from" medium</param>
+    /// <param name="refr_index2"> - refractive index of "to" medium</param>
+    /// <param name="cosLN"> - cos between surface normal and reverse light direction</param>
+    /// <returns></returns>
+    float refraction_angle(float refr_index1, float refr_index2, float cosLN) { // uses n1 sin(theta1) = n2 sin(theta2) formula
+        float sin_theta1 = glm::sin(glm::acos(cosLN)); // aka sinLN
+        float sin_theta2 = refr_index1 / refr_index2 * sin_theta1;
+        //float  37
+
+    }
+    /// <summary>
     /// Возвращает значение, будет ли фотон отражен диффузно, зеркально или вовсе рассеян
     /// </summary>
-    /// <param name="mat">Материал поверхности, на которую попал фотон</param>
+    /// <param name="om">Origin material - Материал поверхности, изначальной поверхности</param>
+    /// <param name="im">Incident material - Материал поверхности, на которую попал фотон</param>
     /// <param name="ipp">Incident photon power — мощность попавшего фотона в RGB </param>
     /// <returns></returns>
-    PathType destiny(const Material& mat, glm::vec3& ipp) {
-        auto max_ipp = std::max(std::max(ipp.r, ipp.g), ipp.b);
-        float e = Random<float>::random(0.f, 1.f); // Only for pd + ps <= 1
+    PathType destiny(float cosNL, const Material& om, const Material& im, glm::vec3& ipp) {
+        float e;
+        /*
+        * Поверхность, на которую попал фотон, должна иметь не единичный показатель преломления, иначе считаем,
+        * что фотон будет просто отражен. Если же показатели преломления равны, то это означает, 
+        * что преломления так же не должно быть. Например, фотон попал из воды в воду.
+        * 
+        */
+        if (im.refr_index != 1.f && om.refr_index != im.refr_index) {
+            float refr_probability = 1.f - FresnelSchlick(cosNL, om.refr_index, im.refr_index);
+            e = Random<float>::random(0.f, 1.f);
+            if (e <= refr_probability) {
+                return PathType::refr;
+            }
+        }
 
-        auto ipp_d = mat.diffuse * ipp;
+        auto max_ipp = std::max(std::max(ipp.r, ipp.g), ipp.b);
+        e = Random<float>::random(0.f, 2.f); // upper bound = 2.f because max|d + s| = 2
+
+        auto ipp_d = im.diffuse * ipp;
         auto max_ipp_d = std::max(std::max(ipp_d.r, ipp_d.g), ipp_d.b);
         auto pd = max_ipp_d / max_ipp;
         if (e <= pd) {  
-            ipp *= mat.diffuse / pd; // diffuse reflection
+            ipp *= im.diffuse / pd; // diffuse reflection
             return PathType::dif_refl;
         }
 
-        auto ipp_s = mat.specular * ipp;
+        auto ipp_s = im.specular * ipp;
         auto max_ipp_s = std::max(std::max(ipp_s.r, ipp_s.g), ipp_s.b);
         auto ps = max_ipp_s / max_ipp;
         if (e <= pd + ps) {
-            ipp *= mat.specular / ps; // specular reflection
+            ipp *= im.specular / ps; // specular reflection
             return PathType::spec_refl;
         }
 
@@ -72,14 +106,14 @@ private:
     /// </summary>
     /// <param name="ray"></param>
     /// <param name="pp">- photon power</param>
-    void trace(const Ray& ray, glm::vec3& pp) {
+    void trace(const Ray& ray, bool in_object, glm::vec3& pp) {
         float inter = 0.f;
         glm::vec3 normal;
         Material material;
         for (const PMModel& model : scene) {
             float temp_inter;
             glm::vec3 temp_normal;
-            bool succ = model.intersection(ray, temp_inter, temp_normal);
+            bool succ = model.intersection(ray, in_object, temp_inter, temp_normal);
             if (succ && (inter == 0.f || temp_inter < inter)) {
                 inter = temp_inter;
                 normal = temp_normal;
@@ -94,8 +128,17 @@ private:
         }
         glm::vec3 inter_p = ray.origin + ray.dir * inter;
         Ray new_ray;
-        PathType dest = destiny(material, pp);
+        float cosNL = glm::dot(-ray.dir, normal);
+        PathType dest = destiny(cosNL, cur_mat, material, pp);
         switch (dest) {
+        case PathType::refr:
+        {
+            bool succ = ray.refract(inter_p, normal, cur_mat.refr_index, material.refr_index, new_ray);
+            if (!succ) {
+                throw std::exception("ЧЗХ?");
+            }
+            break;
+        }
         case PathType::dif_refl:
             stored_photons.push_back(Photon(inter_p, pp));
             new_ray = ray.reflect_spherical(inter_p, normal);
@@ -109,7 +152,7 @@ private:
         default:
             break;
         }
-        trace(new_ray, pp);
+        trace(new_ray, material, false, pp);
     }
     float GGX_GFunction(float cosNX, float sqRoughness) // Потерянный свет
     {
@@ -130,7 +173,17 @@ private:
         float res = alpha / (M_PI * fourthCosNX * part * part);
         return res;
     }
-
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="cosNL"> - angle between the light direction and the normal</param>
+    /// <param name="n1"> - index of refreaction "from" medium</param>
+    /// <param name="n2"> - index of refreaction "to" medium</param>
+    /// <returns></returns>
+    float FresnelSchlick(float cosNL, float n1, float n2) {
+        float f0 = std::pow((n1 - n2) / (n1 + n2), 2);
+        return f0 + (1.f - f0) * pow(1.f - cosNL, 5.f);
+    }
     glm::vec3 FresnelSchlick(float cosNL, glm::vec3 F0)
     {
         return F0 + (glm::vec3(1.f) - F0) * pow(1.f - cosNL, 5.f);

@@ -9,6 +9,8 @@ struct Material {
     glm::vec3 diffuse = glm::vec3(1.f);
     glm::vec3 specular = glm::vec3(0.f);
     glm::vec3 emission = glm::vec3(0.0);
+    // Optical density, also known as index of refraction
+    GLfloat refr_index = 1.f;
     GLfloat opaque = 1.f;
     GLfloat shininess = 1.f;
     Material(){}
