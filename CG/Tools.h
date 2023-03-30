@@ -4,6 +4,8 @@
 #include <ctime>
 #include <iostream>
 #include <GLM/ext/matrix_transform.hpp>
+#include <queue>
+#include <set>
 template <typename T>
 struct Random {
     /// <summary>
@@ -33,9 +35,10 @@ struct Random {
     }
 };
 
-class BalancedKDTree {
+class PhotonMap {
     struct Node {
         glm::vec3 value;
+        short plane;
         Node* left = nullptr;
         Node* right = nullptr;
         ~Node() {
@@ -45,7 +48,39 @@ class BalancedKDTree {
             right = nullptr;
         }
     };
+    struct NPNode { // TODO как укомплектовать
+        const Node* photon;
+        unsigned int sq_dist;
+        NPNode(const Node* photon, unsigned int sq_dist) : photon(photon), sq_dist(sq_dist) {}
+    };
+    class NPNodeCopmarator {
+        NPNodeCopmarator(){}
+        bool operator() (const NPNode* f, const NPNode* s) {
+            return f->sq_dist < s->sq_dist;
+        }
+    };
+    class NPContainer : private std::set<const NPNode, NPNodeCopmarator> {
+        size_t capacity;
+    public:
+        NPContainer(size_t capacity) : capacity(capacity) {}
+        void push(const NPNode& elem) {
+            set::insert(elem);
+            if (this->size() == capacity + 1) {
+                this->erase(std::prev(this->end()));
+            }
+        }
+        const NPNode top() const {
+            return *this->begin();
+        }
+    };
+    struct NearestPhotons {
+        glm::vec3 pos;
+        NPContainer container;
+        NearestPhotons(glm::vec3 pos) : pos(pos), container(NPContainer(20)) // TODO размер узнать
+        {}
+    };
     // glm::vec3** heap; Тотальный проигрыш куче, т.к. непонятен размер.
+    size_t max_distance = 1000; // TODO перенести в cpp пока что
     Node* root;
     size_t size;
     /// <summary>
@@ -86,6 +121,7 @@ class BalancedKDTree {
             return nullptr;
         }
         Node* node = new Node();
+        node->plane = dim;
         if (points.size() == 1) {
             node->value = *points[0];
             return node;
@@ -129,8 +165,40 @@ class BalancedKDTree {
         node->right = fill_balanced(right_dim, s2); // right
         return node;
     }
+    void locate(NearestPhotons* const np,
+        const int index, const Node* photon) const {
+        if (photon == nullptr) {
+            return;
+        }
+        const Node* p = photon;
+        float dist1;
+        dist1 = np->pos[p->plane] - p->value[p->plane];
+        if (dist1 > 0.f) { // if dist1 is positive search right plane
+            locate(np, 2 * index + 1, p->right);
+            if (dist1 * dist1 < np->container.top().sq_dist) {
+                locate(np, 2 * index, p->left);
+            }
+        }
+        else { // dist1 is negative search left first
+            locate(np, 2 * index, p->left);
+            if (dist1 * dist1 < np->container.top().sq_dist) {
+                locate(np, 2 * index + 1, p->right);
+            }
+        }
+        // compute squared distance between current photon and np->pos
+        auto dists1 = p->value - np->pos;
+        float sq_dist = dists1.x * dists1.x + dists1.y * dists1.y + dists1.z + dists1.z;
+        if (sq_dist < np->container.top().sq_dist) {
+            np->container.push({ p, sq_dist });
+        }
+    }
 public:
-    BalancedKDTree(const std::vector<glm::vec3>& points) {
+    void locate(const Node* elem) {
+        NearestPhotons np(elem->value);
+        np.container.push({ elem, max_distance * max_distance });
+        locate(&np, 1, root);
+    }
+    PhotonMap(const std::vector<glm::vec3>& points) {
         size = points.size();
         //heap = new glm::vec3*[size];
         
@@ -160,14 +228,14 @@ public:
 
         root = fill_balanced(largest_dim, points_pointers);
     }
-    ~BalancedKDTree() {
+    ~PhotonMap() {
         delete root;
         root = nullptr;
     }
 };
 
 template<typename T>
-class Stack
+class Stack : public std::stack<T>
 {
     T* arr;
     int top;
