@@ -1,135 +1,47 @@
 #pragma once
-#include "ObjLoader.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include "GLM/glm.hpp"
 #include "GLM/vec3.hpp"
+#include "Tools.h"
+#include "ObjLoader.h"
 struct Ray {
     glm::vec3 origin;
     glm::vec3 dir;
-    Ray() {};
-    Ray(glm::vec3 origin, glm::vec3 dir) {
-        this->origin = origin;
-        this->dir = glm::normalize(dir);
-    }
-    Ray reflect_spherical(const glm::vec3& from, const glm::vec3& normal) const {
-        float e1 = Random<float>::random();
-        float e2 = Random<float>::random();
-        float theta = std::pow(std::cos(std::sqrt(e1)), -1.f);
-        float phi = 2 * M_PI * e2;
-        glm::vec3 new_dir;
-        float r = glm::length(normal);
-        float sin_theta = sin(theta);
-        new_dir.x = r * sin_theta * cos(phi);
-        new_dir.y = r * sin_theta * sin(phi);
-        new_dir.z = r * cos(theta);
-        Ray res(from, new_dir);
-        return res;
-    }
-    Ray reflect(glm::vec3 from, glm::vec3 normal) const {
-        glm::vec3 refl_dir = 2.f * normal * glm::dot(dir, normal) - dir; // TODO или наоборот? затестить
-        return { from, glm::normalize(from + refl_dir) };
-    }
-    bool refract(glm::vec3 from, glm::vec3 normal, float refr1, float refr2, Ray& out) const {
-        float refr_index = refr1 / refr2;
-        float ndd = glm::dot(dir, normal);
-        auto theta = 1.f - refr_index * refr_index * (1.f - ndd * ndd); // TODO исправить? https://stackoverflow.com/questions/42218704/how-to-properly-handle-refraction-in-raytracing
-        if (theta < 0.f) {
-            return false;
-        }
-        float cos_theta = glm::sqrt(theta);
-        out.origin = from;
-        out.dir = glm::normalize(dir * theta - (cos_theta + refr_index * ndd) * normal);
-        return true;
-    }
+    Ray() {}
+    Ray(glm::vec3 origin, glm::vec3 dir);
+    Ray reflect_spherical(const glm::vec3& from, const glm::vec3& normal) const;
+    Ray reflect(const glm::vec3& from, const glm::vec3& normal) const;
+    bool refract(const glm::vec3& from, const glm::vec3& normal, float refr1, float refr2, Ray& out) const;
 };
-float eps = 0.0001f;
 class PMModel {
+    static size_t id_gen;
+    static float eps;
     ModelConstructInfo mci;
+    size_t id;
     bool traingle_intersection(const Ray& ray, bool in_object, const glm::vec3& p0,
-        const glm::vec3& p1, const glm::vec3& p2, float& out) const {
-        out = 0.f;
-        glm::vec3 edge1 = p1 - p0;
-        glm::vec3 edge2 = p2 - p0;
-        glm::vec3 h = glm::cross(ray.dir, edge2);
-        float a = glm::dot(edge1, h);
-
-        if (a > -eps && a < eps) {
-            return false;       // Этот луч параллелен этому треугольнику.
-        }
-
-        float f = 1.0f / a;
-        glm::vec3 s = ray.origin - p0;
-        float u = f * glm::dot(s, h);
-        if (u < 0 || u > 1)
-            return false;
-
-        glm::vec3 q = glm::cross(s, edge1);
-        float v = f * glm::dot(ray.dir, q);
-        if (v < 0 || u + v > 1) {
-            return false;
-        }
-        // На этом этапе мы можем вычислить t, чтобы узнать, где находится точка пересечения на линии.
-        float t = f * glm::dot(edge2, q);
-        if (t > eps)
-        {
-            out = t;
-            return true;
-        }
-        //Это означает, что есть пересечение линий, но не пересечение лучей.
-        return false;
-    }
+        const glm::vec3& p1, const glm::vec3& p2, float& out) const;
 public:
-    PMModel(const ModelConstructInfo& mci) {
-        this->mci = mci;
-    }
-   bool intersection(const Ray& ray, bool in_object, float& intersection, glm::vec3& normal) const {
-        intersection = 0.f;
-        size_t inter_ind = 0;
-        if (mci.render_mode == GL_TRIANGLES) {
-            for (size_t i = 0; i < mci.vertices.size(); i += 3) {
-                float temp = 0.f;
-                bool succ = traingle_intersection(ray, in_object, mci.vertices[i].position, 
-                    mci.vertices[i + 1].position, mci.vertices[i + 2].position, temp);
-                if (succ && intersection == 0 || temp < intersection) {
-                    intersection = temp;
-                    inter_ind = i;
-                }
-            }
-        }
-        else if (mci.render_mode == GL_QUADS) {
-            for (size_t i = 0; i < mci.vertices.size(); i += 4) {
-                float temp = 0.f;
-                bool succ = traingle_intersection(ray, in_object, mci.vertices[i].position, 
-                    mci.vertices[i + 1].position, mci.vertices[i + 3].position, temp);
-                if (succ && intersection == 0 || temp < intersection) {
-                    intersection = temp;
-                    inter_ind = i;
-                    continue;
-                }
-
-                temp = 0.f;
-                succ = traingle_intersection(ray, in_object, mci.vertices[i + 1].position,
-                    mci.vertices[i + 2].position,mci.vertices[i + 3].position, temp);
-                if (succ && intersection == 0 || temp < intersection) {
-                    intersection = temp;
-                    inter_ind = i;
-                }
-            }
-        }
-        else {
-            throw std::exception("Not implemented"); // TODO ?
-        }
-        if (intersection == 0.f) {
-            return false;
-        }
-        normal = mci.vertices[inter_ind].normal;
-        /*normal += mci.vertices[inter_ind + 1].normal;
-        normal += mci.vertices[inter_ind+2].normal;
-        normal /= 3;*/
-        return true;
-    }
-    Material get_material() const {
-        return mci.material;
-    }
+    std::string name; // TODO разобраться как const
+    PMModel() {}
+    PMModel(const PMModel& other);
+    PMModel(const ModelConstructInfo& mci);
+    bool intersection(const Ray& ray, bool in_object, float& intersection, glm::vec3& normal) const;
+    bool equal(const PMModel& other) const;
+    bool equal(size_t other_id) const;
+    const Material* get_material() const;
+    size_t get_id() const;
+    glm::vec3* get_wn() const;
+};
+struct PMScene {
+    std::vector<PMModel> objects;
+    /*
+    * 1    2
+    * |    ^
+    * v    |
+    * 4 -> 3
+    */
+    glm::vec3 right_upper, left_lower, camera, normal;
+    PMScene(const std::vector<PMModel>& objects);
+    PMScene();
 };

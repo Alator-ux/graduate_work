@@ -20,6 +20,7 @@ std::vector<Shader> shaders;
 Shader lampShader;
 Drawer drawer;
 Camera camera;
+CImgTexture* canvas;
 void Init(OpenGLManager*);
 void Draw(int, float, float, double);
 void Release();
@@ -143,8 +144,21 @@ void Do_Movement() {
 }
 void Release() {
     OpenGLManager::get_instance()->release();
+    delete canvas;
 }
 
+void print_vec3(const glm::vec3& elem) {
+    std::cout << "(" << elem.x << "," << elem.y << "," << elem.z << ")";
+}
+void println_vec3(const glm::vec3& elem) {
+    print_vec3(elem);
+    std::cout << std::endl;
+}
+void print_vec(const std::vector<glm::vec3>& c) {
+    for (auto& elem : c) {
+        println_vec3(elem);
+    }
+}
 size_t pmpointcount;
 void Init(OpenGLManager* manager) {
     Random<unsigned>::set_seed();
@@ -166,12 +180,16 @@ void Init(OpenGLManager* manager) {
         scene.push_back(m);
     }
     std::vector<LightSource> lssources({ PointLight(lspos) });
-    auto pm = PhotonMapping(scene, lssources, 100000);
+    auto pm = PhotonMapping(canvas, scene, lssources, 1000);
+    pm.build_map();
+    pm.render();
+
+   /* auto pm = PhotonMapping(scene, lssources, 1000);
     auto pmap = pm.build_map();
     pmpointcount = pmap->size();
     std::vector<glm::vec3> points;
     std::for_each(pmap->begin(), pmap->end(), [&points](const PhotonMapping::Photon& ph) {points.push_back(ph.pos);});
-    manager->init_vbo("pm", &points[0], sizeof(glm::vec3) * points.size(), GL_STATIC_DRAW);
+    manager->init_vbo("pm", &points[0], sizeof(glm::vec3) * points.size(), GL_STATIC_DRAW);*/
 
     shaders[0].use_program();
     shaders[0].uniformMatrix4fv("Model", glm::value_ptr(glm::mat4(1.f)));
