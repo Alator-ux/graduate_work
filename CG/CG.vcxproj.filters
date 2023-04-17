@@ -66,6 +66,21 @@
     <ClCompile Include="OpenGLWrappers.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="ObjLoader.cpp">
+      <Filter>Исходные файлы\Drawing\Loaders</Filter>
+    </ClCompile>
+    <ClCompile Include="PhotonMapping.cpp">
+      <Filter>Исходные файлы\Drawing\PhotonMapping</Filter>
+    </ClCompile>
+    <ClCompile Include="PhotonMap.cpp">
+      <Filter>Исходные файлы\Drawing\PhotonMapping</Filter>
+    </ClCompile>
+    <ClCompile Include="PathOperator.cpp">
+      <Filter>Исходные файлы\Drawing\PhotonMapping</Filter>
+    </ClCompile>
+    <ClCompile Include="PMModel.cpp">
+      <Filter>Исходные файлы\Drawing\PhotonMapping</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
 <<<<<<< HEAD
@@ -143,9 +158,6 @@
     <ClInclude Include="stb_image.h">
       <Filter>Linked</Filter>
     </ClInclude>
-    <ClInclude Include="PMModel.h">
-      <Filter>Файлы заголовков\Drawing\Drawable</Filter>
-    </ClInclude>
     <ClInclude Include="PhotonMapping.h">
       <Filter>Файлы заголовков\Drawing\PhotonMapping</Filter>
     </ClInclude>
@@ -157,6 +169,18 @@
     </ClInclude>
     <ClInclude Include="Tools.h">
       <Filter>Файлы заголовков\Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="PhotonMap.h">
+      <Filter>Файлы заголовков\Drawing\PhotonMapping</Filter>
+    </ClInclude>
+    <ClInclude Include="Photon.h">
+      <Filter>Файлы заголовков\Drawing\PhotonMapping</Filter>
+    </ClInclude>
+    <ClInclude Include="PathOperator.h">
+      <Filter>Файлы заголовков\Drawing\PhotonMapping</Filter>
+    </ClInclude>
+    <ClInclude Include="PMModel.h">
+      <Filter>Файлы заголовков\Drawing\PhotonMapping</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -263,6 +287,12 @@
     </Filter>
     <Filter Include="Файлы заголовков\Tools">
       <UniqueIdentifier>{791f6802-a1c6-4594-8054-fbbef97f4b12}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\Drawing\Loaders">
+      <UniqueIdentifier>{cca11c14-55ec-462a-92b4-207077335023}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\Drawing\PhotonMapping">
+      <UniqueIdentifier>{669edb40-9d03-4ea7-9b68-e122cf465e52}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

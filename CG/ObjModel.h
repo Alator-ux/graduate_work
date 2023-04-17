@@ -1,4 +1,5 @@
 #pragma once
+#include "GL\glew.h"
 #include "Texture.h"
 #include "ObjMesh.h"
 #include "ObjLoader.h"

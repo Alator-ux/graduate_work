@@ -1,4 +1,5 @@
 #pragma once
+#include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <string>
 #include <glm/vec3.hpp>
@@ -131,9 +132,6 @@ public:
         unsigned char uch_color[3];
         for (size_t i = 0; i < 3; i++) {
             uch_color[i] = color[i];
-        }
-        if (uch_color[0] != 255 || uch_color[1] != 127 || uch_color[2] != 38) {
-            auto a = 1;
         }
         image.draw_point(x, y, uch_color);
     }
