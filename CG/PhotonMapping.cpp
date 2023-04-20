@@ -31,8 +31,8 @@ void PhotonMapping::emit(const LightSource& ls) {
         auto pp = ls.diffuse; // photon power
         trace(ray, false, pp);
         ne++;
-        if (ne % 500 == 0) {
-            std::cout << "Photons emited: " << ne << std::endl;
+        if (ne % (PHOTONS_COUNT / 10) == 0) {
+            std::cout << "\tPhotons emited: " << ne << std::endl;
         }
     }
 }
@@ -203,9 +203,12 @@ float PhotonMapping::FresnelSchlick(float cosNL, float n1, float n2) {
     return f0 + (1.f - f0) * pow(1.f - cosNL, 5.f);
 }
 void PhotonMapping::build_map() {
-    for (const LightSource& ls : lsources) {
-        emit(ls);
+    std::cout << "Photon emission started" << std::endl;
+    for (size_t i = 0; i < lsources.size(); i++) {
+        std::cout << "Light source " << i + 1 << " of " << lsources.size() << std::endl;
+        emit(lsources[i]);
     }
+    std::cout << "Photon emission ended" << std::endl;
     this->photon_map.fill_balanced(stored_photons);
     stored_photons.clear();
     return ;
@@ -252,10 +255,11 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray) {
 }
 void PhotonMapping::render() {
     canvas->clear();
+    std::cout << "Rendering has started" << std::endl;
     float width = canvas->get_width();
     float height = canvas->get_height();
     std::vector<glm::vec3> framebuffer(width * height);
-    float fov = glm::radians(60.f);
+    constexpr float fov = glm::radians(60.f);
     scene.camera = { 0,1,1 };
     scene.normal = { 0,0,-1 };
     for (size_t j = 0; j < height; j++) {
@@ -268,10 +272,15 @@ void PhotonMapping::render() {
             glm::vec3 dir = glm::normalize(glm::vec3(dir_x, dir_y, dir_z));
             Ray ray(scene.camera - scene.normal * 1.5f, dir);
             //Ray ray(scene.camera, dir);
-            glm::vec3 color = glm::normalize(render_trace(ray));
+            glm::vec3 color = render_trace(ray);
             canvas->set_rgb(i, j, color * 255.f);
         }
+        if (j % ((size_t)height / 50) == 0) {
+            std::cout << "\tPixels filled: " << j * width << " of " << width * height << std::endl;
+        }
     }
+    std::cout << "\tPixels filled: " << width * height << " of " << width * height << std::endl;
+    std::cout << "Rendering has ended" << std::endl;
 }
 /*void PhotonMapping::render() {
     canvas->clear();
