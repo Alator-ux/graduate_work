@@ -99,8 +99,8 @@ float PhotonMap::GaussianFilter::call(const glm::vec3& ppos, const glm::vec3& lo
 }
 /* ========== GaussianFilter class end ========== */
 
-size_t PhotonMap::find_largest_dim(const glm::vec3& bigp, const glm::vec3& smallp) {
-    size_t largest_dim = 0;
+short PhotonMap::find_largest_plane(const glm::vec3& bigp, const glm::vec3& smallp) {
+    size_t largest_plane = 0;
     {
         glm::vec3 dims(
             std::abs(bigp.x - smallp.x),
@@ -111,11 +111,11 @@ size_t PhotonMap::find_largest_dim(const glm::vec3& bigp, const glm::vec3& small
         for (size_t i = 1; i < 3; i++) {
             if (dims[i] > max) {
                 max = dims[i];
-                largest_dim = i;
+                largest_plane = i;
             }
         }
     }
-    return largest_dim;
+    return largest_plane;
 }
 void PhotonMap::update_cube(const glm::vec3& p, glm::vec3& bigp, glm::vec3& smallp) {
     for (size_t point_i = 0; point_i < 3; point_i++) {
@@ -126,55 +126,6 @@ void PhotonMap::update_cube(const glm::vec3& p, glm::vec3& bigp, glm::vec3& smal
             smallp[point_i] = p[point_i];
         }
     }
-}
-PhotonMap::Node* PhotonMap::fill_balanced(size_t dim, std::vector<const Photon*>& photons) {
-    if (photons.size() == 0) {
-        return nullptr;
-    }
-    Node* node = new Node();
-    node->plane = dim;
-    if (photons.size() == 1) {
-        node->value = *photons[0];
-        return node;
-    }
-
-    // Сортировка для нахождения среднего. Сортируем указатели.
-    std::sort(photons.begin(), photons.end(),
-        [&dim](const Photon* p1, const Photon* p2) { return (*p1).pos[dim] < (*p2).pos[dim]; });
-    size_t mid = photons.size() / 2;
-    const Photon* medium = photons[mid];
-
-    std::vector<const Photon*> s1, s2;
-    glm::vec3 left_bigp(std::numeric_limits<float>::lowest()), left_smallp(std::numeric_limits<float>::max());
-    glm::vec3 right_bigp(left_bigp), right_smallp(left_smallp);
-    for (size_t i = 0; i < mid; i++) {
-        if ((*photons[i]).pos[dim] < (*medium).pos[dim]) {
-            s1.push_back(photons[i]); // all points below median
-            update_cube(photons[i]->pos, left_bigp, left_smallp);
-        }
-        else {
-            s2.push_back(photons[i]); // all points above median
-            update_cube(photons[i]->pos, right_bigp, right_smallp);
-        }
-    }
-    for (size_t i = mid + 1; i < photons.size(); i++) { // два цикла, чтобы не проверять на ==
-        if ((*photons[i]).pos[dim] < (*medium).pos[dim]) {
-            s1.push_back(photons[i]);
-            update_cube(photons[i]->pos, left_bigp, left_smallp);
-        }
-        else {
-            s2.push_back(photons[i]);
-            update_cube(photons[i]->pos, right_bigp, right_smallp);
-        }
-    }
-
-    size_t left_dim = find_largest_dim(left_bigp, left_smallp);
-    size_t right_dim = find_largest_dim(right_bigp, right_smallp);
-
-    node->value = *medium;
-    node->left = fill_balanced(left_dim, s1); // left
-    node->right = fill_balanced(right_dim, s2); // right
-    return node;
 }
 void PhotonMap::locate(NearestPhotons* const np,
     const int index, const Node* photon) const {
@@ -261,31 +212,79 @@ void PhotonMap::fill_balanced(const std::vector<Photon>& photons) {
     filters[1] = new GaussianFilter(gf_alpha, gf_beta);
     //heap = new glm::vec3*[size];
 
+    if (photons.size() == 0) {
+        root = nullptr;
+        return;
+    }
+    std::cout << "Filling balanced KD-tree (photon map) started" << std::endl;
     /*
     * нахождение "куба", захватывающего все точки и заполнение вектор указателей для работы с ними
     * + перевод вектор точек в вектор указателей на точки для дальнейшего удобства
     */
     std::vector<const Photon*> photons_pointers(photons.size());
-    photons_pointers[0] = &photons[0];
     glm::vec3 bigp(photons[0].pos), smallp(photons[0].pos);
-    for (size_t vec_i = 1; vec_i < photons.size(); vec_i++) {
-        photons_pointers[vec_i] = &photons[vec_i];
-        for (size_t point_i = 0; point_i < 3; point_i++) {
-            if (photons[vec_i].pos[point_i] > bigp[point_i]) {
-                bigp[point_i] = photons[vec_i].pos[point_i];
-            }
-            else if (photons[vec_i].pos[point_i] < smallp[point_i]) {
-                smallp[point_i] = photons[vec_i].pos[point_i];
-            }
-        }
+    for (size_t i = 0; i < photons.size(); i++) {
+        photons_pointers[i] = &photons[i];
+        update_cube(photons[i].pos, bigp, smallp);
     }
 
     /*
     * нахождение измерения с наибольшей длиной
     */
-    auto largest_dim = find_largest_dim(bigp, smallp);
+    auto largest_plane = find_largest_plane(bigp, smallp);
 
-    root = fill_balanced(largest_dim, photons_pointers);
+    size_t count = 0;
+    // from, to, plane, node
+    std::stack<std::tuple<size_t, size_t, short, Node**>> ftpn_recur;
+    ftpn_recur.push({ 0, photons_pointers.size(), largest_plane, &root });
+    while (!ftpn_recur.empty()) {
+        short plane;
+        size_t from, to;
+        Node** node;
+        std::tie(from, to, plane, node) = ftpn_recur.top();
+        ftpn_recur.pop();
+        if (to - from == 0) {
+            node = nullptr;
+            continue;
+        }
+        count++;
+        
+        if (count % ((PHOTONS_COUNT / 10)) == 0) {
+            std::cout << "\tPhotons inserted: " << count << std::endl;
+        }
+        *node = new Node();
+        (*node)->plane = plane;
+        if (to - from == 1) {
+            (*node)->value = *photons_pointers[from];
+        }
+
+        // Сортировка для нахождения среднего. Сортируем указатели.
+        std::sort(std::next(photons_pointers.begin(), from), std::next(photons_pointers.begin(), to),
+            [&plane](const Photon* p1, const Photon* p2) { return p1->pos[plane] < p2->pos[plane]; });
+        size_t mid = (to - from) / 2 + from;
+        const Photon* medium = photons_pointers[mid];
+
+        std::vector<const Photon*> s1, s2;
+        glm::vec3 left_bigp(std::numeric_limits<float>::lowest()), left_smallp(std::numeric_limits<float>::max());
+        glm::vec3 right_bigp(left_bigp), right_smallp(left_smallp);
+        std::for_each(std::next(photons_pointers.begin(), from), std::next(photons_pointers.begin(), mid),
+            [&left_bigp, &left_smallp, this](const Photon* p) {
+                update_cube(p->pos, left_bigp, left_smallp);
+            });
+        std::for_each(std::next(photons_pointers.begin(), mid + 1), std::next(photons_pointers.begin(), to),
+            [&right_bigp, &right_smallp, this](const Photon* p) {
+                update_cube(p->pos, right_bigp, right_smallp);
+            });
+
+        size_t left_plane = find_largest_plane(left_bigp, left_smallp);
+        size_t right_plane = find_largest_plane(right_bigp, right_smallp);
+
+        (*node)->value = *medium;
+        ftpn_recur.push({ from, mid, left_plane, &(*node)->left }); // left
+        ftpn_recur.push({ mid + 1, to, right_plane, &(*node)->right }); // right
+    }
+    std::cout << "\tPhotons inserted: " << count << std::endl;
+    std::cout << "Filling balanced KD-tree (photon map) ended" << std::endl;
 }
 PhotonMap::~PhotonMap() {
     delete root;

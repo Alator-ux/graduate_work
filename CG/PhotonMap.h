@@ -100,9 +100,8 @@ private:
     /// </summary>
     /// <param name="bigp"> Первая точка, описывающая куб</param>
     /// <param name="smallp">Вторая точка, описывающа куб</param>
-    size_t find_largest_dim(const glm::vec3& bigp, const glm::vec3& smallp);
+    short find_largest_plane(const glm::vec3& bigp, const glm::vec3& smallp);
     void update_cube(const glm::vec3& p, glm::vec3& bigp, glm::vec3& smallp);
-    Node* fill_balanced(size_t dim, std::vector<const Photon*>& points);
     void locate(NearestPhotons* const np,
         const int index, const Node* photon) const;
 public:

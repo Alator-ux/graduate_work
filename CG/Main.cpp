@@ -16,6 +16,7 @@
 #include "Tools.h"
 #include "PMModel.h"
 #include "PhotonMapping.h"
+#include "Photon.h"
 const GLuint W_WIDTH = 600;
 const GLuint W_HEIGHT = 600;
 std::vector<Shader> shaders;
@@ -186,7 +187,7 @@ void Init(OpenGLManager* manager) {
         scene.push_back(m);
     }
     std::vector<LightSource> lssources({ PointLight(lspos) });
-    auto pm = PhotonMapping(canvas, scene, lssources, 10000);
+    auto pm = PhotonMapping(canvas, scene, lssources, PHOTONS_COUNT);
     pm.build_map();
     pm.render();
 
@@ -207,7 +208,7 @@ void Init(OpenGLManager* manager) {
     manager->checkOpenGLerror();
 }
 void Draw(int n, float fcspeed, float scspeed, double time) {
-    auto manager = OpenGLManager::get_instance();
+   /* auto manager = OpenGLManager::get_instance();
     shaders[n].use_program();
     shaders[n].uniformMatrix4fv("View", glm::value_ptr(camera.GetViewMatrix()));
     auto vpos = shaders[n].get_attrib_location("vPos");
@@ -216,7 +217,7 @@ void Draw(int n, float fcspeed, float scspeed, double time) {
     glVertexAttribPointer(vpos, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glDrawArrays(GL_POINTS, 0, pmpointcount);
     shaders[n].disable_program();
-    OpenGLManager::checkOpenGLerror();
+    OpenGLManager::checkOpenGLerror();*/
     /*lampShader.use_program();
     lampShader.uniformMatrix4fv("View", glm::value_ptr(camera.GetViewMatrix()));
     //cube.render(1, GL_QUAD_STRIP);
