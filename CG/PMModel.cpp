@@ -65,11 +65,11 @@ bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, f
 // ========== PMModel section start ==========
 size_t PMModel::id_gen = 1;
 float PMModel::eps = 0.0001f;
-PMModel::PMModel(const PMModel& other) :name(other.name) {
+PMModel::PMModel(const PMModel& other) : name(other.name) {
     this->id = other.id;
     this->mci = other.mci;
 }
-PMModel::PMModel(const ModelConstructInfo& mci) {
+PMModel::PMModel(const ModelConstructInfo& mci) : name(mci.name) {
     this->mci = mci;
     this->id = id_gen;
     id_gen++;
@@ -167,7 +167,7 @@ size_t PMModel::get_id() const {
 }
 glm::vec3* PMModel::get_wn() const
 {
-    glm::vec3 right_upper(0.f), left_lower(0.f), normal(0.f);
+    glm::vec3 right_upper(mci.vertices[0].position), left_lower(mci.vertices[0].position), normal(0.f);
     for (auto& v : mci.vertices) {
         for (size_t point_i = 0; point_i < 3; point_i++) {
             if (v.position[point_i] > right_upper[point_i]) {
@@ -196,13 +196,14 @@ PMScene::PMScene(const std::vector<PMModel>& objects)
     this->objects = std::vector<PMModel>(objects.size());
     for (size_t i = 0; i < objects.size(); i++) {
         this->objects[i] = objects[i];
-        if(objects[i].name == "frontFall") {
+        if(objects[i].name == "frontWall") {
             glm::vec3* wn = objects[i].get_wn();
             left_lower = *wn;
             right_upper = *(wn + 1);
             normal = *(wn + 2);
-            delete wn;
         }
     }
-    this->camera = (left_lower + right_upper) / 2.f + normal * 2.f;
+    this->camera = (left_lower + right_upper) / 2.f;
+    //this->camera = glm::vec3(0.f, 1.f, 1.f);
+    //this->normal = glm::vec3(0.f, 0.f, - 1.f);
 }

@@ -19,7 +19,7 @@ private:
     PMScene scene;
     std::vector<LightSource> lsources;
     CImgTexture* canvas;
-    PathOperator path_operator;
+    Material default_medium;
     /// <summary>
     /// ca_table Ч critical angle table.
     /// Map with critical angles for each medium pair in the scene.
@@ -37,15 +37,16 @@ private:
     /// </summary>
     /// <param name="om">Origin material - ћатериал поверхности, изначальной поверхности</param>
     /// <param name="ipmm">Incident PMModel - ћатериал поверхности, на которую попал фотон</param>
+    /// <param name="ipp">Light photon power Ч параметр испущенного из источника света фотона в RGB </param>
     /// <param name="ipp">Incident photon power Ч мощность попавшего фотона в RGB </param>
     /// <returns></returns>
-    PathType destiny(float cosNL, const PMModel* ipmm, glm::vec3& ipp);
+    PathType destiny(float cosNL, const PMModel* ipmm, const glm::vec3& lphoton, glm::vec3& ipp);
     /// <summary>
     /// ‘ункци€ трассировки луча дл€ составлени€ фотонных карт
     /// </summary>
     /// <param name="ray">- ray...</param>
     /// <param name="pp">- photon power</param>
-    void trace(const Ray& ray, bool in_object, glm::vec3& pp);
+    void trace(const Ray& ray, bool in_object, const glm::vec3& pp);
     /// <summary>
     /// ‘ункци€ трассировки луча дл€ непосредственного рендеринга
     /// </summary>
@@ -64,6 +65,7 @@ private:
     float FresnelSchlick(float cosNL, float n1, float n2);
     glm::vec3 FresnelSchlick(float cosNL, glm::vec3 F0);
     glm::vec3 CookTorrance_GGX(float NdotL, float NdotV, float NdotH, glm::vec3 F, float roughness);
+    void clear_mediums();
     
 public:
     PhotonMapping(CImgTexture* canvas, const std::vector<PMModel>& objects, 

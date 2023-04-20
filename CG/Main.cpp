@@ -60,8 +60,9 @@ int main() {
 
     bool show_demo_window = false;
     std::string vbo_name = "";
+    cimg_library::CImgDisplay main_disp(canvas->image, "Canvas");
     while (!glfwWindowShouldClose(window))
-    {
+    {   
         glfwPollEvents();
 
         // Start the Dear ImGui frame
@@ -80,6 +81,8 @@ int main() {
             scspeed_slider.draw();
             ImGui::End();
         }
+
+        main_disp.display(canvas->image);
 
         // Rendering
         ImGui::Render();
@@ -169,20 +172,21 @@ void Init(OpenGLManager* manager) {
     Shader shader = Shader();
     shader.init_shader("main.vert", "main.frag");
     shaders.push_back(shader);
+    canvas = new CImgTexture(300, 300);
 
+    auto map = loadOBJ("./models/cornell_box_original", "CornellBox-Original.obj");
     glm::vec3 lspos(0.f);
-    auto map = loadOBJ("./models/cornell_box", "cornellbox-water2.obj");
     std::vector<PMModel> scene;
     for (auto& kv : map) {
-        if (kv.first == "light") {
-            std::for_each(kv.second.vertices.begin(), kv.second.vertices.end(), [&lspos](const ObjVertex& vert) {lspos += vert.position;});
-            lspos /= kv.second.vertices.size();
+        if (kv.name == "light") {
+            std::for_each(kv.vertices.begin(), kv.vertices.end(), [&lspos](const ObjVertex& vert) {lspos += vert.position;});
+            lspos /= kv.vertices.size();
         }
-        auto m = PMModel(kv.second);
+        auto m = PMModel(kv);
         scene.push_back(m);
     }
     std::vector<LightSource> lssources({ PointLight(lspos) });
-    auto pm = PhotonMapping(canvas, scene, lssources, 1000);
+    auto pm = PhotonMapping(canvas, scene, lssources, 10000);
     pm.build_map();
     pm.render();
 

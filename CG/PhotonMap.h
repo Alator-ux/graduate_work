@@ -38,6 +38,7 @@ class PhotonMap {
         std::vector<Photon> to_vector() const;
         size_t capacity() const ;
         float max_sq_dist() const;
+        float min_sq_dist() const;
     };
     struct NearestPhotons {
         glm::vec3 pos;
@@ -109,8 +110,8 @@ public:
     std::vector<Photon> locate(const glm::vec3& value, size_t capacity) const;
     bool radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& iloc, const glm::vec3& norm,
         PhotonMap::Type type, glm::vec3& out_rad);
+    void fill_balanced(const std::vector<Photon>& points);
     PhotonMap();
-    PhotonMap(const std::vector<Photon>& points);
     ~PhotonMap();
 };
 
