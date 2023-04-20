@@ -1,4 +1,5 @@
 #include "ObjLoader.h"
+#include <unordered_set>
 
 void loadMaterial(const std::string& mtl_path, const std::string mtl_fname,
     const std::string& material, Material& dest) {
@@ -95,7 +96,11 @@ void build_vertices(std::vector<ObjVertex>& vertices, std::vector<glm::fvec3>& v
             vertices[i].texcoord = vertex_texcoords[vertex_texcoord_indicies[i] - 1];
         }
         if (vertex_normal_indicies.size() != 0) {
-            vertices[i].normal = vertex_normals[vertex_normal_indicies[i] - 1];
+            GLint normal_ind = vertex_normal_indicies[i] - 1;
+            if (normal_ind < 0) {
+                normal_ind = vertex_normals.size() + normal_ind + 1;
+            }
+            vertices[i].normal = vertex_normals[normal_ind];
         }
     }
 
@@ -107,7 +112,7 @@ void build_vertices(std::vector<ObjVertex>& vertices, std::vector<glm::fvec3>& v
     vertex_normal_indicies = std::vector<GLint>();
 }
 
-std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const std::string& fname)
+std::vector<ModelConstructInfo> loadOBJ(const std::string& path, const std::string& fname)
 {
     //Vertex portions
     std::vector<glm::fvec3> vertex_positions;
@@ -119,10 +124,10 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
     std::vector<GLint> vertex_texcoord_indicies;
     std::vector<GLint> vertex_normal_indicies;
 
-    std::map<std::string, ModelConstructInfo> res;
+    std::vector<ModelConstructInfo> res;
     ModelConstructInfo cur;
     std::string cur_name = "n1";
-
+    std::unordered_set<std::string> names;
     std::stringstream ss;
     std::ifstream obj_file(path + "/" + fname);
     std::string mtl_fname;
@@ -150,18 +155,19 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
             ss >> prefix;
         }
         if (desc_finished && prefix != "f") {
-            if (cur_name == "backWall") {
-                auto a = 1;
-            }
             build_vertices(cur.vertices, vertex_positions, vertex_texcoords, vertex_normals, vertex_position_indicies,
                 vertex_texcoord_indicies, vertex_normal_indicies);
             //DEBUG
             std::cout << "Nr of vertices: " << cur.vertices.size() << "\n";
-            if (res.find(cur_name) != res.end()) {
+            if (names.find(cur_name) != names.end()) {
                 cur_name += '1';
             }
-            res[cur_name] = cur;
+            names.insert(cur_name);
+            cur.name = cur_name;
+            res.push_back(cur);
+            auto old_cur = cur;
             cur = ModelConstructInfo();
+            cur.material = old_cur.material;
             desc_finished = false;
             //std::cout << "OBJ file loaded!" << "\n";
             //return res;
@@ -214,7 +220,7 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
         {
             desc_finished = true; // После всех "f" либо конец файла, либо следующая модель
             int counter = 0;
-            size_t ps = 1; // poly size
+            size_t ps = 0; // poly size
             while (ss >> temp_glint)
             {
                 //Pushing indices into correct arrays
@@ -274,13 +280,82 @@ std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const
             vertex_texcoord_indicies, vertex_normal_indicies);
         //DEBUG
         std::cout << "Nr of vertices: " << cur.vertices.size() << "\n";
-        if (res.find(cur_name) != res.end()) {
+        if (names.find(cur_name) != names.end()) {
             cur_name += '1';
         }
-        res[cur_name] = cur;
+        names.insert(cur_name);
+        cur.name = cur_name;
+        res.push_back(cur);
     }
 
     //Loaded success
     std::cout << "OBJ file loaded!" << "\n";
     return res;
+}
+
+void fill_normals(const std::string& path, const std::string& fname) {
+    std::vector<glm::fvec3> vertex_positions;
+
+    std::stringstream ss;
+    std::string full_name = path + "/" + fname;
+    std::string old_name = path + "/" + fname + ".old";
+    const char* full_cname = full_name.c_str();
+    const char* old_cname = old_name.c_str();
+    if (std::rename(full_cname, old_cname)) {
+        throw "ERROR::OBJLOADER::Could not rename file.";
+    }
+    std::ifstream old_file(old_name);
+    std::ofstream new_file(full_name);
+
+    std::string line = "";
+    std::string prefix = "";
+    GLint temp_glint = 0;
+    glm::vec3 temp_vec3;
+    if (!old_file.is_open())
+    {
+        throw "ERROR::OBJLOADER::Could not open file.";
+    }
+    bool processing_v = false;
+    while (std::getline(old_file, line))
+    {
+        ss.clear();
+        if (line.size() == 0) {
+            prefix.clear();
+        }
+        else {
+            ss.str(line);
+            ss >> prefix;
+        }
+        if (prefix == "v") //Vertex position
+        {
+            ss >> temp_vec3.x >> temp_vec3.y >> temp_vec3.z;
+            vertex_positions.push_back(temp_vec3);
+            processing_v = true;
+        }
+        else if (processing_v)
+        {
+            auto v1 = vertex_positions[1] - vertex_positions[0];
+            auto v2 = vertex_positions[vertex_positions.size() - 1] - vertex_positions[0];
+            auto norm = glm::normalize(glm::cross(v1, v2));
+            new_file << "vn  " << norm.x << " " << norm.y << " " << norm.z << '\n';
+            vertex_positions.clear();
+            processing_v = false;
+        }
+        if (prefix == "f") {
+            new_file << "f  ";
+            while (ss >> temp_glint)
+            {
+                if (ss.peek() == ' ')
+                {
+                    ss.ignore(1, ' ');
+                }
+                new_file << temp_glint << "////" << "-1 ";
+            }
+            new_file << "\n";
+            continue;
+        }
+        new_file << line << '\n';
+    }
+    old_file.close();
+    std::remove(old_cname);
 }

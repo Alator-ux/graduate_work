@@ -121,14 +121,14 @@ public:
     void clear() {
         this->image = cimg_library::CImg<unsigned char>(image.width(), image.height(), 1, 3, 255);
     }
-    void set_rgb(glm::vec3 coord, glm::vec3 color) {
+    void set_rgb(glm::vec3 coord, const glm::vec3& color) {
         unsigned char rgb[3];
         for (size_t i = 0; i < 3; i++) {
             image(coord.x, coord.y, 0, i) = color[i];
             rgb[i] = color[i];
         }
     }
-    void set_rgb(int x, int y, glm::vec3 color) {
+    void set_rgb(int x, int y, const glm::vec3& color) {
         unsigned char uch_color[3];
         for (size_t i = 0; i < 3; i++) {
             uch_color[i] = color[i];

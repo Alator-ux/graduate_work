@@ -82,12 +82,12 @@ public:
     }
 };
 
-std::map<std::string, Model*> loadObjModel(const std::string& path, const std::string& fname) {
+/*std::map<std::string, Model*> loadObjModel(const std::string& path, const std::string& fname) {
     std::map<std::string, Model*> res;
     auto infos = loadOBJ(path, fname);
-    for (auto it = infos.begin(); it != infos.end(); it++) {
-        auto model = new Model(it->second);
+    for (auto& info : infos) {
+        auto model = new Model(*it);
         res[it->first] = model;
     }
     return res;
-}
+}*/

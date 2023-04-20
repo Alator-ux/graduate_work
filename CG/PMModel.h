@@ -22,7 +22,7 @@ class PMModel {
     bool traingle_intersection(const Ray& ray, bool in_object, const glm::vec3& p0,
         const glm::vec3& p1, const glm::vec3& p2, float& out) const;
 public:
-    std::string name; // TODO разобраться как const
+    std::string name;
     PMModel() {}
     PMModel(const PMModel& other);
     PMModel(const ModelConstructInfo& mci);

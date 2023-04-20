@@ -14,6 +14,7 @@ struct ObjVertex {
 };
 // Нужна для конструкции класса модели
 struct ModelConstructInfo {
+    std::string name;
     Material material;
     std::vector<ObjVertex> vertices;
     std::vector<size_t> lengths;
@@ -22,4 +23,6 @@ struct ModelConstructInfo {
 void loadMaterial(const std::string& mtl_path, const std::string mtl_fname, 
     const std::string& material, Material& dest);
 
-std::map<std::string, ModelConstructInfo> loadOBJ(const std::string& path, const std::string& fname);
+std::vector<ModelConstructInfo> loadOBJ(const std::string& path, const std::string& fname);
+
+void fill_normals(const std::string& path, const std::string& fname);

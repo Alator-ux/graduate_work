@@ -26,7 +26,7 @@ PhotonMap::Node::~Node() {
 
 /* ==========! PhotonMapp substruct !========== */
 /* ========== NPNode struct begin ========== */
-PhotonMap::NPNode::NPNode(const Node* photon, float sq_dist) : node(node), sq_dist(sq_dist) {}
+PhotonMap::NPNode::NPNode(const Node* photon, float sq_dist) : node(photon), sq_dist(sq_dist) {}
 /* ========== NPNode struct end ========== */
 
 /* ==========! PhotonMapp substruct !========== */
@@ -41,7 +41,7 @@ bool PhotonMap::NPNodeCopmarator::operator() (const NPNode& f, const NPNode& s) 
 PhotonMap::NPContainer::NPContainer(size_t capacity) : _capacity(capacity) {}
 void PhotonMap::NPContainer::push(const NPNode& elem) {
     set::insert(elem);
-    if (this->size() == _capacity) {
+    if (this->size() == _capacity + 1) {
         this->erase(std::prev(this->end()));
     }
 }
@@ -59,12 +59,13 @@ size_t PhotonMap::NPContainer::size() const {
 }
 std::vector<Photon> PhotonMap::NPContainer::to_vector() const {
     std::vector<Photon> res;
-    for (auto it = this->begin(); it != this->end(); it++){
+    for (auto it = this->begin(); it != this->end(); it = std::next(it)) {
         res.push_back((*it).node->value);
     }
     return res;
 }
-float PhotonMap::NPContainer::max_sq_dist() const { return (*std::prev(this->end())).sq_dist; }
+float PhotonMap::NPContainer::max_sq_dist() const { return std::prev(this->end())->sq_dist; }
+float PhotonMap::NPContainer::min_sq_dist() const { return this->begin()->sq_dist; }
 size_t PhotonMap::NPContainer::capacity() const { return _capacity; }
 /* ========== NPContainer class end ========== */
 
@@ -185,21 +186,20 @@ void PhotonMap::locate(NearestPhotons* const np,
     dist1 = np->pos[p->plane] - p->value.pos[p->plane];
     if (dist1 > 0.f) { // if dist1 is positive search right plane
         locate(np, 2 * index + 1, p->right);
-        if (dist1 * dist1 < np->container.top().sq_dist) {
+        if (dist1 * dist1 < np->container.max_sq_dist()) {
             locate(np, 2 * index, p->left);
         }
     }
     else { // dist1 is negative search left first
         locate(np, 2 * index, p->left);
-        if (dist1 * dist1 < np->container.top().sq_dist) {
+        if (dist1 * dist1 < np->container.max_sq_dist()) {
             locate(np, 2 * index + 1, p->right);
         }
     }
     // compute squared distance between current photon and np->pos
     auto dists1 = p->value.pos - np->pos;
-    float sq_dist = dists1.x * dists1.x + dists1.y * dists1.y + dists1.z + dists1.z;
-
-    np->container.push({ p, sq_dist });
+    float sq_dist = dists1.x * dists1.x + dists1.y * dists1.y + dists1.z * dists1.z;
+    np->container.push(NPNode(p, sq_dist));
 }
 std::vector<Photon>  PhotonMap::locate(const Node* elem, size_t capacity) const {
     NearestPhotons np(elem->value.pos, capacity);
@@ -226,24 +226,26 @@ bool PhotonMap::radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& ilo
     Type type, glm::vec3& out_rad) {
     
     auto nearest_photons = locate(iloc, np_size);
-    if (nearest_photons.size() <= np_size) {
+    if (nearest_photons.size() < np_size) {
         return false;
     }
 
     out_rad.x = out_rad.y = out_rad.z = 0;
     float r, filter_r;
-    filter_r = r = glm::distance(iloc, (*(std::prev(nearest_photons.end()))).pos);
+    filter_r = r = glm::distance(iloc, (std::prev(nearest_photons.end()))->pos);
     if (type == Type::caustic) {
         filter_r *= filter_r;
     }
     for (auto& p : nearest_photons) { // str 88
-        if (glm::length(p.inc_dir * inc_dir) < 0.f) {
-            auto a = filters[type];
-            out_rad += p.power * (this->filters[0])->call(p.pos, iloc, filter_r);
+        float cosNL = glm::dot(-p.inc_dir, norm);
+        if (cosNL > 0.f) { 
+            out_rad += p.power *cosNL;// *(this->filters[type])->call(p.pos, iloc, filter_r);
+            //out_rad += p.power * (this->filters[type])->call(p.pos, iloc, filter_r);
         }
     }
 
-    float temp = (1.f / (M_PI * r * r * this->filters[type]->norm_coef));
+    //float temp = (1.f / (M_PI * r * r * this->filters[type]->norm_coef));
+    float temp = (1.f / (M_PI * (r * r)));// *this->filters[type]->norm_coef));
     out_rad *= temp;
     return true;
 }
@@ -251,7 +253,7 @@ PhotonMap::PhotonMap() {
     this->size = 0;
     this->root = nullptr;
 }
-PhotonMap::PhotonMap(const std::vector<Photon>& photons) {
+void PhotonMap::fill_balanced(const std::vector<Photon>& photons) {
     size = photons.size();
     
     filters = std::vector<Filter*>(2);
