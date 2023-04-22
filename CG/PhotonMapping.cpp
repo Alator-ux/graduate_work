@@ -1,12 +1,14 @@
 #include "PhotonMapping.h"
 /* ========== PhotonMapping class begin ========== */
-PhotonMapping::PhotonMapping(CImgTexture* canvas, const std::vector<PMModel>& objects, 
+PhotonMapping::PhotonMapping() : global_map(PhotonMap::Type::def), caustic_map(PhotonMap::Type::caustic) {}
+void PhotonMapping::init(CImgTexture* canvas, const std::vector<PMModel>& objects,
     const std::vector<LightSource>& lsources, size_t phc) {
-    this->scene = PMScene(objects);
+    this->scene = std::move(PMScene(objects));
     this->lsources = lsources;
     this->canvas = canvas;
     this->phc = phc;
-    this->stored_photons = std::vector<Photon>();
+    this->global_sp = std::vector<Photon>();
+    this->caustic_sp = std::vector<Photon>();
     this->ca_table = std::map<float, float>();
     this->default_medium = Material();
     this->default_medium.refr_index = 1.f;
@@ -21,6 +23,7 @@ void PhotonMapping::emit(const LightSource& ls) {
     size_t ne = 0;// Number of emitted photons
     while (ne < phc) {
         clear_mediums();
+        path_operator.clear();
         float x, y, z;
         do {
             x = Random<float>::random(-1.f, 1.f);
@@ -28,7 +31,7 @@ void PhotonMapping::emit(const LightSource& ls) {
             z = Random<float>::random(-1.f, 1.f);
         } while (x * x + y * y + z * z > 1.f); // TODO normalize ?
         Ray ray(ls.position, { x,y,z });
-        auto pp = ls.diffuse; // photon power
+        auto pp = ls.intensity / (float)PHOTONS_COUNT; // photon power
         trace(ray, false, pp);
         ne++;
         if (ne % (PHOTONS_COUNT / 10) == 0) {
@@ -99,36 +102,30 @@ bool PhotonMapping::refract(float cosNL, const PMModel* ipmm) {
     }
     return false;
 }
-PathType PhotonMapping::destiny(float cosNL, const PMModel* ipmm, const glm::vec3& lphoton, glm::vec3& ipp) {
+PathType PhotonMapping::destiny(float cosNL, const PMModel* ipmm, const glm::vec3& lphoton) {
     if (refract(cosNL, ipmm)) {
         return PathType::refr;
     }
     float e;
     const Material* im = ipmm->get_material();
 
-    auto max_ipp = std::max(std::max(ipp.r, ipp.g), ipp.b);
+    auto max_lp = std::max(std::max(lphoton.r, lphoton.g), lphoton.b);
     e = Random<float>::random(0.f, 2.f); // upper bound = 2.f because max|d + s| = 2
 
-    auto ipp_d = im->diffuse * ipp;
-    auto max_ipp_d = std::max(std::max(ipp_d.r, ipp_d.g), ipp_d.b);
-    auto pd = max_ipp_d / max_ipp;
+    auto lp_d = im->diffuse * lphoton;
+    auto max_lp_d = std::max(std::max(lp_d.r, lp_d.g), lp_d.b);
+    auto pd = max_lp_d / max_lp;
     if (e <= pd) {
-        ipp = lphoton * im->diffuse; //im->diffuse / pd; // diffuse reflection
-        if (ipp.x == ipp.y && ipp.z == ipp.y) {
-            auto a = 1;
-        }
         return PathType::dif_refl;
     }
 
-    auto ipp_s = im->specular * ipp;
-    auto max_ipp_s = std::max(std::max(ipp_s.r, ipp_s.g), ipp_s.b);
-    auto ps = max_ipp_s / max_ipp;
+    auto lp_s = im->specular * lphoton;
+    auto max_lp_s = std::max(std::max(lp_s.r, lp_s.g), lp_s.b);
+    auto ps = max_lp_s / max_lp;
     if (e <= pd + ps) {
-        //ipp *= im->specular / ps; // specular reflection
         return PathType::spec_refl;
     }
 
-    ipp = lphoton * im->diffuse;
     return PathType::absorption;
 }
 bool PhotonMapping::find_intersection(const Ray& ray, PMModel*& imodel, glm::vec3& normal, glm::vec3& inter_p) {
@@ -163,8 +160,7 @@ void PhotonMapping::trace(const Ray& ray, bool in_object, const glm::vec3& pp) {
     Ray new_ray;
     float cosNL = glm::dot(-ray.dir, normal);
     auto cur_mi = mediums.peek(); // current material and id
-    glm::vec3 photon_to_store;
-    PathType dest = destiny(cosNL, imodel, pp, photon_to_store);
+    PathType dest = destiny(cosNL, imodel, pp);
     switch (dest) {
     case PathType::refr:
     {
@@ -176,31 +172,36 @@ void PhotonMapping::trace(const Ray& ray, bool in_object, const glm::vec3& pp) {
         break;
     }
     case PathType::dif_refl:
-        if (photon_to_store.x == photon_to_store.y && photon_to_store.z == photon_to_store.y) {
-            auto a = 1;
+        global_sp.push_back(Photon(inter_p, pp, ray.dir));
+        if (path_operator.response()) {
+            caustic_sp.push_back(Photon(inter_p, pp, ray.dir)); // TODO мб сделать соотв inter_p - ray_dir
         }
-        stored_photons.push_back(Photon(inter_p, photon_to_store, ray.dir));
         new_ray = ray.reflect_spherical(inter_p, normal);
         break;
     case PathType::spec_refl:
         new_ray = ray.reflect(inter_p, normal);
         break;
     case PathType::absorption:
-        if (imodel->get_material()->specular == glm::vec3(0.f)) {
-            if (photon_to_store.x == photon_to_store.y && photon_to_store.z == photon_to_store.y) {
-                auto a = 1;
+        if (imodel->get_material()->specular != glm::vec3(1.f)) {
+            global_sp.push_back(Photon(inter_p, pp, ray.dir));
+            if (path_operator.response()) {
+                caustic_sp.push_back(Photon(inter_p, pp, ray.dir));
             }
-            stored_photons.push_back(Photon(inter_p, photon_to_store, ray.dir));
         }
         return;
     default:
         break;
     }
+    path_operator.inform(dest);
     trace(new_ray, false, pp);
 }
 float PhotonMapping::FresnelSchlick(float cosNL, float n1, float n2) {
     float f0 = std::pow((n1 - n2) / (n1 + n2), 2);
     return f0 + (1.f - f0) * pow(1.f - cosNL, 5.f);
+}
+void PhotonMapping::hdr(glm::vec3& dest) {
+    dest = glm::vec3(1.f) - glm::exp(-dest * settings.exposure);
+    dest = glm::pow(dest, glm::vec3(1.f / settings.gamma));
 }
 void PhotonMapping::build_map() {
     std::cout << "Photon emission started" << std::endl;
@@ -209,8 +210,12 @@ void PhotonMapping::build_map() {
         emit(lsources[i]);
     }
     std::cout << "Photon emission ended" << std::endl;
-    this->photon_map.fill_balanced(stored_photons);
-    stored_photons.clear();
+    std::cout << "Global map:" << std::endl;
+    global_map.fill_balanced(global_sp);
+    global_sp.clear();
+    std::cout << "Caustic map:" << std::endl;
+    caustic_map.fill_balanced(caustic_sp);
+    caustic_sp.clear();
     return ;
 }
 glm::vec3 PhotonMapping::render_trace(const Ray& ray) {
@@ -228,10 +233,24 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray) {
 
     if (mat->diffuse != glm::vec3(0.f)) {
         glm::vec3 re;
-        if (!photon_map.radiance_estimate(ray.dir, inter_p, normal, PhotonMap::Type::def, re)) { // diffuse
+        if (settings.dpmdi) {
+            int lcount = 0;
+            for (auto& ls : lsources) {
+                glm::vec3 tnormal, tinter_p;
+                PMModel* timodel;
+                Ray tray(inter_p, ls.position - inter_p);
+                find_intersection(tray, timodel, tnormal, tinter_p);
+                if (timodel->name == "light") { // TODO че-то нормальное
+                    lcount++;
+                    re += glm::max(glm::dot(tnormal, tray.dir), 0.f);
+                }
+            }
+            re /= lcount == 0 ? 1 : lcount;
+        }
+        else if (!global_map.radiance_estimate(ray.dir, inter_p, normal, re)) { // diffuse
             throw std::exception("someting goes wrong...");
         }
-        res = re;
+        res = re * mat->diffuse;
     }
 
     float cosNL = glm::dot(-ray.dir, normal);
@@ -239,17 +258,17 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray) {
     if (refract(cosNL, imodel)) {
         Ray nray;
         bool succ = ray.refract(inter_p, normal,
-                cur_mi.first->refr_index, imodel->get_material()->refr_index, nray);
+                cur_mi.first->refr_index, mat->refr_index, nray);
         if (!succ) {
             throw std::exception("ЧЗХ?");
         }
         auto t = render_trace(nray);
-        res += t;
+        res += t * (1.f - mat->opaque);
     }
     else if (mat->specular != glm::vec3(0.f)) {
         Ray nray = ray.reflect(inter_p, normal);
         auto t = render_trace(nray);
-        res += t; // TODO пока так, но мб все же домножать?
+        res += t * mat->specular;
     }
     return res;
 }
@@ -273,6 +292,8 @@ void PhotonMapping::render() {
             Ray ray(scene.camera - scene.normal * 1.5f, dir);
             //Ray ray(scene.camera, dir);
             glm::vec3 color = render_trace(ray);
+            hdr(color);
+            color *= settings.brightness;
             canvas->set_rgb(i, j, color * 255.f);
         }
         if (j % ((size_t)height / 50) == 0) {
@@ -282,38 +303,6 @@ void PhotonMapping::render() {
     std::cout << "\tPixels filled: " << width * height << " of " << width * height << std::endl;
     std::cout << "Rendering has ended" << std::endl;
 }
-/*void PhotonMapping::render() {
-    canvas->clear();
-    float w = canvas->get_width();
-    float h = canvas->get_height();
-    glm::vec3 step_up = glm::vec3(scene.right_upper.x - scene.left_lower.x, 0.f, 0.f) / 
-        (w - 1.f); //отношение ширины комнаты к ширине экрана
-    glm::vec3 step_down = glm::vec3(0.f, scene.right_upper.y - scene.left_lower.y, 0.f) /
-        (h - 1.f); //отношение высоты комнаты к высоте экрана
-    glm::vec3 up = glm::vec3(scene.left_lower.x, scene.right_upper.y, scene.right_upper.z);
-    glm::vec3 down = glm::vec3(scene.left_lower.x, scene.left_lower.y, scene.right_upper.z);
-
-    for (int i = 0; i < w; ++i)
-    {
-        glm::vec3 step_y = (up - down) / (h - 1.f);
-        //glm::vec3 d = glm::vec3(down);
-        glm::vec3 dir = glm::vec3(down);
-        for (int j = 0; j < h; ++j)
-        {
-            //pixels[i, j] = d;
-            //Ray ray = Ray(scene.camera, pixels[i, j]);
-            clear_mediums();
-            Ray ray = Ray(scene.camera, glm::normalize(dir)); // мб что-то другое
-            //r.origin = glm::vec3(pixels[i, j]);
-            glm::vec3 color = glm::normalize(render_trace(ray));
-            canvas->set_rgb(i, j, color * 255.f);
-            //d += step_y;
-            dir += step_y;
-        }
-        up += step_up;
-        down += step_down;
-    }
-}*/
 float PhotonMapping::BRDF(glm::vec3 direction, glm::vec3 location, glm::vec3 normal, const Material* mat) {
     glm::vec3 halfVector = glm::normalize(direction + glm::normalize(location));
     float NdotH = glm::max(glm::dot(normal, halfVector), 0.0f);
@@ -356,4 +345,18 @@ glm::vec3 PhotonMapping::CookTorrance_GGX(float NdotL, float NdotV, float NdotH,
     float DCoeff = GGX_DFunction(NdotH, sqRoughness);
 
     return glm::max(GCoeff * DCoeff * F * 0.25f / NdotV, 0.f);
+}
+void PhotonMapping::update_exposure(float exposure) {
+    settings.exposure = exposure;
+}
+void PhotonMapping::update_brightness(float brightness) {
+    settings.brightness = brightness;
+}
+void PhotonMapping::update_ls_intensity(const glm::vec3& intensity) {
+    for (size_t i = 0; i < this->lsources.size(); i++) {
+        lsources[i].intensity = intensity;
+    }
+}
+void PhotonMapping::update_dpmdi(bool value) {
+    settings.dpmdi = value;
 }

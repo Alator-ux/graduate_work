@@ -24,6 +24,7 @@ Shader lampShader;
 Drawer drawer;
 Camera camera;
 CImgTexture* canvas;
+PhotonMapping pm;
 void Init(OpenGLManager*);
 void Draw(int, float, float, double);
 void Release();
@@ -55,10 +56,15 @@ int main() {
 
     ImGui::StyleColorsDark();
 
-    auto button_row = RadioButtonRow({ "Phong", "Toon shading", "Rim"});
-    auto fcspeed_slider = FloatSlider("First Caustic Speed", 0.001f, 1.f);
-    auto scspeed_slider = FloatSlider("Second Caustic Speed", 0.001f, 1.f);
-
+    
+    auto exp_input = InputFloat("Exposure", 1.f);
+    auto br_input = InputFloat("Brightness", 1.f);
+    auto inten_input = Vec3Selector(glm::vec3(1.f));
+    auto di_cb = CheckBox("Use the photon map only for indirect illumination");
+    
+    pm.update_exposure(exp_input.get_value());
+    pm.update_brightness(br_input.get_value());
+    pm.update_ls_intensity(inten_input.get_value());
     bool show_demo_window = false;
     std::string vbo_name = "";
     cimg_library::CImgDisplay main_disp(canvas->image, "Canvas");
@@ -71,15 +77,27 @@ int main() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        
         {
             ImGui::Begin("Window!");
-            ImGui::Text("Current mode: " + mode);
-            if (button_row.draw()) {
-                mode = button_row.get_value();
+            if (di_cb.draw()) {
+                pm.update_dpmdi(di_cb.get_value());
             }
-            fcspeed_slider.draw();
-            scspeed_slider.draw();
+            if (exp_input.draw()) {
+                pm.update_exposure(exp_input.get_value());
+            }
+            if (br_input.draw()) {
+                pm.update_brightness(br_input.get_value());
+            }
+            ImGui::Text("LS intensity");
+            if (inten_input.draw()) {
+                pm.update_ls_intensity(inten_input.get_value());
+            }
+            if (ImGui::Button("Build maps")) {
+                pm.build_map();
+            }
+            if (ImGui::Button("Render")) {
+                pm.render();
+            }
             ImGui::End();
         }
 
@@ -94,7 +112,7 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         Do_Movement();
         double time = glfwGetTime();
-        Draw(mode, fcspeed_slider.get_value(), scspeed_slider.get_value(), time);
+        Draw(mode, 0,0, time);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwMakeContextCurrent(window);
@@ -187,9 +205,8 @@ void Init(OpenGLManager* manager) {
         scene.push_back(m);
     }
     std::vector<LightSource> lssources({ PointLight(lspos) });
-    auto pm = PhotonMapping(canvas, scene, lssources, PHOTONS_COUNT);
-    pm.build_map();
-    pm.render();
+    pm.init(canvas, scene, lssources, PHOTONS_COUNT);
+    //pm.build_map();
 
    /* auto pm = PhotonMapping(scene, lssources, 1000);
     auto pmap = pm.build_map();

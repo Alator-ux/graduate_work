@@ -21,5 +21,5 @@ struct Photon {
     }
 };
 enum class PathType {
-    dif_refl = 0, spec_refl, absorption, refr, eye, none
+    dif_refl = 0, spec_refl, absorption, refr, none
 };

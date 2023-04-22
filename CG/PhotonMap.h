@@ -95,6 +95,7 @@ private:
     // Gaussian filter coef beta
     const float gf_beta = 1.953f;
     std::vector<Filter*> filters;
+    Type type;
     /// <summary>
     /// Возвращает измерение по которому "куб" имеет наибольшую длину
     /// </summary>
@@ -107,10 +108,11 @@ private:
 public:
     std::vector<Photon> locate(const Node* elem, size_t capacity) const;
     std::vector<Photon> locate(const glm::vec3& value, size_t capacity) const;
-    bool radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& iloc, const glm::vec3& norm,
-        PhotonMap::Type type, glm::vec3& out_rad);
+    bool radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& iloc, 
+        const glm::vec3& norm, glm::vec3& out_rad);
     void fill_balanced(const std::vector<Photon>& points);
     PhotonMap();
+    PhotonMap(Type type);
     ~PhotonMap();
 };
 

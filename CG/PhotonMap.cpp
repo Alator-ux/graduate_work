@@ -172,9 +172,8 @@ std::vector<Photon> PhotonMap::locate(const glm::vec3& value, size_t capacity) c
     delete susNode;
     return np.container.to_vector();
 }
-const int np_size = 8;
-bool PhotonMap::radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& iloc, const glm::vec3& norm,
-    Type type, glm::vec3& out_rad) {
+const int np_size = 500;
+bool PhotonMap::radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& iloc, const glm::vec3& norm, glm::vec3& out_rad) {
     
     auto nearest_photons = locate(iloc, np_size);
     if (nearest_photons.size() < np_size) {
@@ -190,17 +189,18 @@ bool PhotonMap::radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& ilo
     for (auto& p : nearest_photons) { // str 88
         float cosNL = glm::dot(-p.inc_dir, norm);
         if (cosNL > 0.f) { 
-            out_rad += p.power *cosNL;// *(this->filters[type])->call(p.pos, iloc, filter_r);
+            out_rad += p.power *cosNL*(this->filters[type])->call(p.pos, iloc, filter_r);
             //out_rad += p.power * (this->filters[type])->call(p.pos, iloc, filter_r);
         }
     }
 
     //float temp = (1.f / (M_PI * r * r * this->filters[type]->norm_coef));
-    float temp = (1.f / (M_PI * (r * r)));// *this->filters[type]->norm_coef));
+    float temp = (1.f / (M_PI * (r * r) *this->filters[type]->norm_coef));
     out_rad *= temp;
     return true;
 }
-PhotonMap::PhotonMap() {
+PhotonMap::PhotonMap(Type type) {
+    this->type = type;
     this->size = 0;
     this->root = nullptr;
 }
