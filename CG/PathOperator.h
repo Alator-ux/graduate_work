@@ -35,29 +35,27 @@ public:
     /// ph Ч photon map,
     /// rt - ray tracer
     /// </summary>
-    enum class PathResponsible { pm, rt, none };
     PathOperator() {
-        diffuse_surfs = 0;
-        lastPathType = PathType::none;
+        clear();
     }
     void inform(PathType pt) {
-        switch (pt) {
-        case PathType::dif_refl:
+        if (pt == PathType::dif_refl) {
             diffuse_surfs++;
-            break;
-        default:
-            break;
         }
         lastPathType = pt;
     }
-    PathResponsible response() {
-        if (lastPathType == PathType::eye && diffuse_surfs < 2) {
-            return PathResponsible::rt;
+    /// <summary>
+    /// Returns true if caustic map needs to be filled in
+    /// </summary>
+    bool response() {
+        if ((lastPathType == PathType::spec_refl) && diffuse_surfs < 2) {
+            return true;
         } 
         if (lastPathType == PathType::dif_refl) {
-            return PathResponsible::pm;
+            return false;
         }
-        return PathResponsible::none;
+        return false; // мб заменить на енамы и другой ретерн сделать
+        //return ;
     }
     void clear() {
         diffuse_surfs = 0;

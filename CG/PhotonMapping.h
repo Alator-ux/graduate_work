@@ -10,16 +10,27 @@
 #include "PathOperator.h"
 #include "Texture.h"
 class PhotonMapping {
-public:
-    
+    struct Settings {
+        // disable photon mapping for direct illumination
+        bool dpmdi = false;
+        float exposure = 1.f;
+        float brightness = 1.f;
+        float gamma = 2.2f;
+    };
 private:
-    std::vector<Photon> stored_photons;
-    PhotonMap photon_map;
+    // Stored photons for global illumination map
+    std::vector<Photon> global_sp;
+    // Stored photons for caustic illumination map
+    std::vector<Photon> caustic_sp;
+    PhotonMap global_map;
+    PhotonMap caustic_map;
     DeepLookStack<std::pair<const Material*, size_t>> mediums;
+    Material default_medium;
     PMScene scene;
     std::vector<LightSource> lsources;
+    PathOperator path_operator;
+    Settings settings;
     CImgTexture* canvas;
-    Material default_medium;
     /// <summary>
     /// ca_table Ч critical angle table.
     /// Map with critical angles for each medium pair in the scene.
@@ -38,9 +49,8 @@ private:
     /// <param name="om">Origin material - ћатериал поверхности, изначальной поверхности</param>
     /// <param name="ipmm">Incident PMModel - ћатериал поверхности, на которую попал фотон</param>
     /// <param name="ipp">Light photon power Ч параметр испущенного из источника света фотона в RGB </param>
-    /// <param name="ipp">Incident photon power Ч мощность попавшего фотона в RGB </param>
     /// <returns></returns>
-    PathType destiny(float cosNL, const PMModel* ipmm, const glm::vec3& lphoton, glm::vec3& ipp);
+    PathType destiny(float cosNL, const PMModel* ipmm, const glm::vec3& lphoton);
     /// <summary>
     /// ‘ункци€ трассировки луча дл€ составлени€ фотонных карт
     /// </summary>
@@ -66,10 +76,20 @@ private:
     glm::vec3 FresnelSchlick(float cosNL, glm::vec3 F0);
     glm::vec3 CookTorrance_GGX(float NdotL, float NdotV, float NdotH, glm::vec3 F, float roughness);
     void clear_mediums();
-    
+    void hdr(glm::vec3& dest);
 public:
-    PhotonMapping(CImgTexture* canvas, const std::vector<PMModel>& objects, 
+    PhotonMapping();
+    void init(CImgTexture* canvas, const std::vector<PMModel>& objects,
         const std::vector<LightSource>& lsources, size_t phc);
     void build_map();
     void render();
+    void update_exposure(float exposure);
+    void update_brightness(float brightness);
+    void update_ls_intensity(const glm::vec3& intensity);
+    /// <summary>
+    /// Update disabling photon mapping for direct illumination parameter
+    /// </summary>
+    /// <param name="value"> - if true Ч disable. if false - enable</param>
+    /// <returns></returns>
+    void update_dpmdi(bool value);
 };

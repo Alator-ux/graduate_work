@@ -6,6 +6,7 @@
 #include <GLM/ext/matrix_transform.hpp>
 #include <queue>
 #include <set>
+#include <chrono>
 #include <stack>
 template <typename T>
 struct Random {
@@ -33,6 +34,22 @@ struct Random {
     /// </summary>
     static T random(T from, T to) {
         return from + static_cast<T>(rand()) / (static_cast<T>(RAND_MAX) / static_cast<T>(to - from));
+    }
+};
+
+class Timer {
+    std::chrono::steady_clock::time_point start_time;
+    std::chrono::steady_clock::time_point end_time;
+public:
+    void start() {
+        start_time = std::chrono::high_resolution_clock::now();
+    }
+    void end() {
+        end_time = std::chrono::high_resolution_clock::now();
+    }
+    long long milliseconds(std::chrono::steady_clock::time_point end, std::chrono::steady_clock::time_point begin)
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
     }
 };
 

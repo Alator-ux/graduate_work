@@ -4,6 +4,7 @@
 #include <string>
 
 struct LightSource {
+    glm::vec3 intensity = glm::vec3(1.f);
     glm::vec3 position;
     glm::vec3 ambient;
     glm::vec3 diffuse;

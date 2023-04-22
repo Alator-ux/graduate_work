@@ -11,6 +11,23 @@
 bool string_item_getter(void* data, int index, const char** output);
 bool primitive_item_getter(void* data, int index, const char** output);
 
+class CheckBox {
+    const char* label;
+    bool checked;
+public:
+    CheckBox(const char* label, bool checked = false) {
+        this->label = label;
+        this->checked = checked;
+    }
+    bool draw() {
+        return ImGui::Checkbox(label, &checked);
+    }
+    bool get_value() {
+        return checked;
+    }
+};
+
+
 class DropDownMenu {
     const char* label;
     std::vector<std::string> items;
@@ -201,6 +218,10 @@ public:
     InputFloat(const std::string& label) {
         this->label = label;
     }
+    InputFloat(const std::string& label, float init_value) {
+        this->label = label;
+        this->value = init_value;
+    }
     bool draw() {
         ImGui::PushItemWidth(60);
         bool touched = ImGui::InputFloat(label.c_str(), &value);
@@ -215,19 +236,20 @@ public:
 class Vec3Selector {
     std::vector<InputFloat> text_fields;
     static char identifier;
+    glm::vec3 value;
 public:
-    Vec3Selector() {
+    Vec3Selector(const glm::vec3& init_value) {
         char id[1];
         id[0] = identifier;
-        std::string label = "x##";
+        std::string label = "r##";
         label.append(id);
-        text_fields.push_back(InputFloat(label));
-        label = "y##";
+        text_fields.push_back(InputFloat(label, init_value.x));
+        label = "g##";
         label.append(id);
-        text_fields.push_back(InputFloat(label));
-        label = "z##";
+        text_fields.push_back(InputFloat(label, init_value.y));
+        label = "b##";
         label.append(id);
-        text_fields.push_back(InputFloat(label));
+        text_fields.push_back(InputFloat(label, init_value.z));
         identifier++;
     }
     bool draw() {
@@ -241,10 +263,10 @@ public:
         return touched;
     }
     glm::vec3 get_value() {
-        auto x = text_fields[0].get_value();
-        auto y = text_fields[1].get_value();
-        auto z = text_fields[2].get_value();
-        return glm::vec3(x, y, z);
+        value.x = text_fields[0].get_value();
+        value.y = text_fields[1].get_value();
+        value.z = text_fields[2].get_value();
+        return value;
     }
 };
 
