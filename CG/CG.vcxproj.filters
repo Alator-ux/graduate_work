@@ -43,10 +43,13 @@
     <ClCompile Include="PhotonMap.cpp">
       <Filter>Исходные файлы\Drawing\PhotonMapping</Filter>
     </ClCompile>
-    <ClCompile Include="PathOperator.cpp">
+    <ClCompile Include="PMModel.cpp">
       <Filter>Исходные файлы\Drawing\PhotonMapping</Filter>
     </ClCompile>
-    <ClCompile Include="PMModel.cpp">
+    <ClCompile Include="Tools.cpp">
+      <Filter>Исходные файлы\Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="PMTools.cpp">
       <Filter>Исходные файлы\Drawing\PhotonMapping</Filter>
     </ClCompile>
   </ItemGroup>
@@ -129,10 +132,10 @@
     <ClInclude Include="Photon.h">
       <Filter>Файлы заголовков\Drawing\PhotonMapping</Filter>
     </ClInclude>
-    <ClInclude Include="PathOperator.h">
+    <ClInclude Include="PMModel.h">
       <Filter>Файлы заголовков\Drawing\PhotonMapping</Filter>
     </ClInclude>
-    <ClInclude Include="PMModel.h">
+    <ClInclude Include="PMTools.h">
       <Filter>Файлы заголовков\Drawing\PhotonMapping</Filter>
     </ClInclude>
   </ItemGroup>
@@ -155,18 +158,6 @@
     <None Include="phong.vert">
       <Filter>Shaders\phong</Filter>
     </None>
-    <None Include="toon_shading.vert">
-      <Filter>Shaders\toon</Filter>
-    </None>
-    <None Include="toon_shading.frag">
-      <Filter>Shaders\toon</Filter>
-    </None>
-    <None Include="rim.frag">
-      <Filter>Shaders\rim</Filter>
-    </None>
-    <None Include="rim.vert">
-      <Filter>Shaders\rim</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">
@@ -177,12 +168,6 @@
     </Filter>
     <Filter Include="Shaders\phong">
       <UniqueIdentifier>{dfb1c519-ffe9-4954-b1ea-14e243bf0f8f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shaders\toon">
-      <UniqueIdentifier>{fee3c8d1-4377-4299-a34f-d5d2406429d0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shaders\rim">
-      <UniqueIdentifier>{abb466dd-1251-48fb-af45-bbdb4a7c2a38}</UniqueIdentifier>
     </Filter>
     <Filter Include="Файлы ресурсов">
       <UniqueIdentifier>{cc743150-6a4c-43ac-8897-b36d1a10f560}</UniqueIdentifier>
@@ -246,6 +231,9 @@
     </Filter>
     <Filter Include="Исходные файлы\Drawing\PhotonMapping">
       <UniqueIdentifier>{669edb40-9d03-4ea7-9b68-e122cf465e52}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Исходные файлы\Tools">
+      <UniqueIdentifier>{f7279428-c100-4e1d-af65-459782fb4dc2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -1,7 +1,7 @@
 #include "PMModel.h"
 
 // ========== Ray section start ==========
-Ray::Ray(glm::vec3 origin, glm::vec3 dir) {
+Ray::Ray(const glm::vec3& origin, const glm::vec3& dir) {
      this->origin = origin;
      this->dir = glm::normalize(dir);
 }
@@ -47,6 +47,19 @@ Ray Ray::reflect(const glm::vec3& from, const glm::vec3& normal) const {
     return { from, glm::normalize(from + refl_dir) };
 }
 bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, float refr2, Ray& out) const {
+    /*float eta = refr1 / refr2; // relative index of refraction
+    float ndd = glm::dot(dir, normal); // n dot dir, cos(theta1)
+    auto theta = 1.f - eta * eta * (1.f - ndd * ndd);
+    if (theta < 0.f) {
+        return false;
+    }
+
+    eta = 2.f - refr1 / refr2;
+    float cosi = glm::dot(normal, dir);
+    out.dir = glm::normalize((dir * eta - normal * (-cosi + eta * cosi)));
+    out.origin = from;
+    return true;*/
+
     float eta = refr1 / refr2; // relative index of refraction
     float ndd = glm::dot(dir, normal); // n dot dir, cos(theta1)
     auto theta = 1.f - eta * eta * (1.f - ndd * ndd);
@@ -57,8 +70,30 @@ bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, f
     out.origin = from;
     out.dir = glm::normalize(eta * (dir - ndd * normal) - theta_sqrt * normal);
 
-    //out.dir = glm::normalize(dir * theta - (cos_theta + refr_index * ndd) * normal);
-    return true;
+    //out.dir = glm::normalize(dir * theta - (theta_sqrt + eta * ndd) * normal);
+    
+    /*float eta = refr1 / refr2; // relative index of refraction
+    float ndd = glm::dot(dir, normal); // n dot dir, cos(theta1)
+    auto theta = 1.f - eta * eta * (1.f - ndd * ndd);
+    if (theta < 0.f) {
+        return false;
+    }
+
+    eta = 2.0f - refr1;
+    float cosi = glm::dot(normal, dir);
+    out.origin = from;
+    out.dir = glm::normalize(dir * eta - normal * (-cosi + eta * cosi));
+    return true;*/
+
+    /*float eta = refr1 / refr2;
+    float c1 = -glm::dot(dir, normal);
+    float w = eta * c1;
+    float c2m = (w - eta) * (w + eta);
+    if (c2m < -1.f) {
+        return false;
+    }
+    out.dir = eta * dir + (w - sqrt(1.f + c2m)) * normal;
+    out.origin = from;*/
 }
 // ========== Ray section end ==========
 
@@ -68,11 +103,43 @@ float PMModel::eps = 0.0001f;
 PMModel::PMModel(const PMModel& other) : name(other.name) {
     this->id = other.id;
     this->mci = other.mci;
+    this->bcache = other.bcache;
 }
 PMModel::PMModel(const ModelConstructInfo& mci) : name(mci.name) {
     this->mci = mci;
     this->id = id_gen;
+    this->bcache = std::unordered_map<glm::vec3, BarycentricCache, Vec3Hash>();
     id_gen++;
+}
+glm::vec3 PMModel::barycentric_coords(const glm::vec3& p, const glm::vec3& tr_ind) {
+    glm::vec3 v0, v1, v2;
+    float d00, d01, d11, denom;
+    v2 = p - mci.vertices[tr_ind.x].position;
+    auto fres = bcache.find(tr_ind);
+    if (fres != bcache.end()) {
+        v0 = fres->second.v0;
+        v1 = fres->second.v1;
+        d00 = fres->second.d00;
+        d01 = fres->second.d01;
+        d11 = fres->second.d11;
+        denom = fres->second.denom;
+    }
+    else {
+        v0 = mci.vertices[tr_ind.y].position - mci.vertices[tr_ind.x].position;
+        v1 = mci.vertices[tr_ind.z].position - mci.vertices[tr_ind.x].position;
+        d00 = glm::dot(v0, v0);
+        d01 = glm::dot(v0, v1);
+        d11 = glm::dot(v1, v1);
+        denom = d00 * d11 - d01 * d01;
+        bcache[tr_ind] = BarycentricCache(v0, v1, d00, d01, d11, denom);
+    }
+    float d20 = glm::dot(v2, v0);
+    float d21 = glm::dot(v2, v1);
+    glm::vec3 res;
+    res.y = (d11 * d20 - d01 * d21) / denom; // v
+    res.z = (d00 * d21 - d01 * d20) / denom; // w
+    res.x = 1.0f - res.y - res.z; // u
+    return res;
 }
 bool PMModel::traingle_intersection(const Ray& ray, bool in_object, const glm::vec3& p0,
     const glm::vec3& p1, const glm::vec3& p2, float& out) const {
@@ -107,9 +174,9 @@ bool PMModel::traingle_intersection(const Ray& ray, bool in_object, const glm::v
     //Это означает, что есть пересечение линий, но не пересечение лучей.
     return false;
 }
-bool PMModel::intersection(const Ray& ray, bool in_object, float& intersection, glm::vec3& normal) const {
+bool PMModel::intersection(const Ray& ray, bool in_object, float& intersection, glm::vec3& inter_ind) const {
     intersection = 0.f;
-    size_t inter_ind = 0;
+    inter_ind.x = inter_ind.y = inter_ind.z = 0;
     if (mci.render_mode == GL_TRIANGLES) {
         for (size_t i = 0; i < mci.vertices.size(); i += 3) {
             float temp = 0.f;
@@ -117,7 +184,9 @@ bool PMModel::intersection(const Ray& ray, bool in_object, float& intersection, 
                 mci.vertices[i + 1].position, mci.vertices[i + 2].position, temp);
             if (succ && (intersection == 0 || temp < intersection)) {
                 intersection = temp;
-                inter_ind = i;
+                inter_ind.x = i;
+                inter_ind.y = i + 1;
+                inter_ind.z = i + 2;
             }
         }
     }
@@ -128,7 +197,9 @@ bool PMModel::intersection(const Ray& ray, bool in_object, float& intersection, 
                 mci.vertices[i + 1].position, mci.vertices[i + 3].position, temp);
             if (succ && (intersection == 0 || temp < intersection)) {
                 intersection = temp;
-                inter_ind = i;
+                inter_ind.x = i;
+                inter_ind.y = i + 1;
+                inter_ind.z = i + 3;
                 continue;
             }
 
@@ -137,21 +208,29 @@ bool PMModel::intersection(const Ray& ray, bool in_object, float& intersection, 
                 mci.vertices[i + 2].position, mci.vertices[i + 3].position, temp);
             if (succ && (intersection == 0 || temp < intersection)) {
                 intersection = temp;
-                inter_ind = i;
+                inter_ind.x = i + 1;
+                inter_ind.y = i + 2;
+                inter_ind.z = i + 3;
             }
         }
     }
     else {
-        throw std::exception("Not implemented"); // TODO ?
+        throw std::exception("Not implemented");
     }
     if (intersection == 0.f) {
         return false;
     }
-    normal = mci.vertices[inter_ind].normal;
-    /*normal += mci.vertices[inter_ind + 1].normal;
-    normal += mci.vertices[inter_ind+2].normal;
-    normal /= 3;*/
+    
     return true;
+}
+void PMModel::get_normal(const glm::vec3& inter_ind, const glm::vec3& point, glm::vec3& normal) {
+    if (mci.smooth) {
+        auto uvw = barycentric_coords(point, inter_ind);
+        normal = glm::normalize(mci.vertices[inter_ind.x].normal * uvw[0] +
+            mci.vertices[inter_ind.y].normal * uvw[1] + mci.vertices[inter_ind.z].normal * uvw[2]);
+        return;
+    }
+    normal = mci.vertices[inter_ind.x].normal;
 }
 const Material* PMModel::get_material() const {
     return &mci.material;
@@ -196,11 +275,14 @@ PMScene::PMScene(const std::vector<PMModel>& objects)
     this->objects = std::vector<PMModel>(objects.size());
     for (size_t i = 0; i < objects.size(); i++) {
         this->objects[i] = objects[i];
-        if(objects[i].name == "frontWall") {
+        if(objects[i].name == "backWall") {
             glm::vec3* wn = objects[i].get_wn();
-            left_lower = *wn;
-            right_upper = *(wn + 1);
-            normal = *(wn + 2);
+            left_lower = glm::vec3(wn[0].x, wn[0].y, 0.99f);
+            right_upper = glm::vec3(wn[1].x, wn[1].y, 0.99f);
+            auto a = wn[2];
+            normal.x = -wn[2].x;
+            normal.y = -wn[2].y;
+            normal.z = -wn[2].z;
         }
     }
     this->camera = (left_lower + right_upper) / 2.f;

@@ -44,6 +44,7 @@ int main() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     glewInit();
+    srand(static_cast <unsigned> (time(0)));
 
     auto manager = OpenGLManager::get_instance();
     Init(manager);
@@ -191,7 +192,8 @@ void Init(OpenGLManager* manager) {
     shaders.push_back(shader);
     canvas = new CImgTexture(300, 300);
 
-    auto map = loadOBJ("./models/cornell_box_original", "CornellBox-Original.obj");
+    //auto map = loadOBJ("./models/cornell_box_original", "CornellBox-Original.obj");
+    auto map = loadOBJ("./models/cornell_box_sphere", "CornellBox-Sphere.obj");
     glm::vec3 lspos(0.f);
     std::vector<PMModel> scene;
     for (auto& kv : map) {

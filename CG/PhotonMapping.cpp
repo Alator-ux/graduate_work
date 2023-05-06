@@ -66,14 +66,23 @@ bool PhotonMapping::refract(float cosNL, const PMModel* ipmm) {
     * что фотон будет просто отражен. Если же показатели преломления равны, то это означает,
     * что преломления так же не должно быть. Например, фотон попал из воды в воду.
     */
-    if (im->refr_index != 1.f) {
+    if (im->opaque != 1.f) {
         // Если луч столкнулся с объектом, в котором он находится, с внутренней стороны
         if (ipmm->equal(mat_ind.second)) {
             // Надо достать внешнюю по отношению к объекту среду. На вершине стека лежит объект, 
             // в котором находится луч 
             mat_ind = mediums.peek(1);
         }
+        float divn2n1 = im->refr_index / mat_ind.first->refr_index;
+        if (ca_table.find(divn2n1) != ca_table.end()) {
+            float angle = std::acos(cosNL);
+            if (angle > ca_table[divn2n1]) {
+                return false;
+            }
+        }
         float refr_probability;
+        refr_probability = 1.f - im->opaque;
+        /* ЗАКОНСЕРВИРОВАННО ДО ТЕСТА И ПОНИМАНИЯ
         float divn2n1 = im->refr_index / mat_ind.first->refr_index;
         if (ca_table.find(divn2n1) != ca_table.end()) {
             float critical_angle = ca_table[divn2n1];
@@ -85,7 +94,7 @@ bool PhotonMapping::refract(float cosNL, const PMModel* ipmm) {
         else {
             // Количество преломленного света описывается этим выражением.
             refr_probability = 1.f - FresnelSchlick(cosNL, mat_ind.first->refr_index, im->refr_index);
-        }
+        }*/
 
         float e = Random<float>::random(0.f, 1.f);
         if (e > refr_probability) { // если выпала участь преломиться
@@ -128,16 +137,18 @@ PathType PhotonMapping::destiny(float cosNL, const PMModel* ipmm, const glm::vec
 
     return PathType::absorption;
 }
-bool PhotonMapping::find_intersection(const Ray& ray, PMModel*& imodel, glm::vec3& normal, glm::vec3& inter_p) {
+bool PhotonMapping::find_intersection(const Ray& ray, bool reverse_normal,
+    PMModel*& imodel, glm::vec3& normal, glm::vec3& inter_p) {
     float inter = 0.f;
     imodel = nullptr;
+    glm::vec3 inter_ind;
     for (PMModel& model : scene.objects) {
         float temp_inter;
-        glm::vec3 temp_normal;
-        bool succ = model.intersection(ray, false, temp_inter, temp_normal); // TODO in_object скорее всего дропнуть
+        glm::vec3 temp_ind;
+        bool succ = model.intersection(ray, false, temp_inter, temp_ind); // TODO in_object скорее всего дропнуть
         if (succ && (inter == 0.f || temp_inter < inter)) {
             inter = temp_inter;
-            normal = temp_normal;
+            inter_ind = temp_ind;
             imodel = &model;
         }
     }
@@ -145,17 +156,18 @@ bool PhotonMapping::find_intersection(const Ray& ray, PMModel*& imodel, glm::vec
         return false;
     }
     inter_p = ray.origin + ray.dir * inter;
+    imodel->get_normal(inter_ind, inter_p, normal);
+    if (glm::dot(ray.dir, normal) > 0) { // reverse_normal &&
+        normal *= -1.f;
+    }
     return true;
 }
 void PhotonMapping::trace(const Ray& ray, bool in_object, const glm::vec3& pp) {
     glm::vec3 normal, inter_p;
     // Incident model
     PMModel* imodel;
-    if (!find_intersection(ray, imodel, normal, inter_p)) {
+    if (!find_intersection(ray, in_object, imodel, normal, inter_p)) {
         return;
-    }
-    if (glm::dot(ray.dir, normal) > 0) {
-        normal *= -1.f;
     }
     Ray new_ray;
     float cosNL = glm::dot(-ray.dir, normal);
@@ -164,11 +176,21 @@ void PhotonMapping::trace(const Ray& ray, bool in_object, const glm::vec3& pp) {
     switch (dest) {
     case PathType::refr:
     {
+        float refr1, refr2;
+        if (imodel->equal(cur_mi.second)) {
+            refr1 = imodel->get_material()->refr_index;
+            refr2 = mediums.peek(1).first->refr_index;
+        }
+        else {
+            refr1 = cur_mi.first->refr_index;
+            refr2 = imodel->get_material()->refr_index;
+        }
         bool succ = ray.refract(inter_p, normal,
             cur_mi.first->refr_index, imodel->get_material()->refr_index, new_ray);
         if (!succ) {
-            throw std::exception("ЧЗХ?");
+            //throw std::exception("ЧЗХ?");
         }
+        in_object = !in_object;
         break;
     }
     case PathType::dif_refl:
@@ -193,7 +215,7 @@ void PhotonMapping::trace(const Ray& ray, bool in_object, const glm::vec3& pp) {
         break;
     }
     path_operator.inform(dest);
-    trace(new_ray, false, pp);
+    trace(new_ray, in_object, pp);
 }
 float PhotonMapping::FresnelSchlick(float cosNL, float n1, float n2) {
     float f0 = std::pow((n1 - n2) / (n1 + n2), 2);
@@ -218,57 +240,88 @@ void PhotonMapping::build_map() {
     caustic_sp.clear();
     return ;
 }
-glm::vec3 PhotonMapping::render_trace(const Ray& ray) {
-    glm::vec3 normal, inter_p;
-    PMModel* imodel;
+glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth) {
     glm::vec3 res(0.f);
-    if (!find_intersection(ray, imodel, normal, inter_p)) {
+    if (depth > settings.max_rt_depth) {
         return res;
     }
-    if (glm::dot(ray.dir, normal) > 0) {
-        normal *= -1.f;
+    glm::vec3 normal, inter_p;
+    PMModel* imodel;
+    if (!find_intersection(ray, in_object, imodel, normal, inter_p)) {
+        return res;
     }
+
     const Material* mat = imodel->get_material();
     //return mat->ambient;
 
-    if (mat->diffuse != glm::vec3(0.f)) {
-        glm::vec3 re;
-        if (settings.dpmdi) {
-            int lcount = 0;
-            for (auto& ls : lsources) {
-                glm::vec3 tnormal, tinter_p;
-                PMModel* timodel;
-                Ray tray(inter_p, ls.position - inter_p);
-                find_intersection(tray, timodel, tnormal, tinter_p);
-                if (timodel->name == "light") { // TODO че-то нормальное
-                    lcount++;
-                    re += glm::max(glm::dot(tnormal, tray.dir), 0.f);
-                }
+    if (!in_object && mat->diffuse != glm::vec3(0.f)) {
+        glm::vec3 re(0.f);
+        int lcount = 0;
+        glm::vec3 tnormal, tinter_p;
+        PMModel* timodel;
+        Ray tray;
+        for (auto& ls : lsources) {
+            tray.origin = ls.position;
+            tray.dir = glm::normalize(inter_p - ls.position); // point <- ls
+            if (find_intersection(tray, in_object, timodel, tnormal, tinter_p) && vec3_equal(inter_p, tinter_p)) {
+                lcount++;
+                re += glm::max(glm::dot(normal, -tray.dir), 0.f);
             }
-            re /= lcount == 0 ? 1 : lcount;
         }
-        else if (!global_map.radiance_estimate(ray.dir, inter_p, normal, re)) { // diffuse
-            throw std::exception("someting goes wrong...");
+        re /= lcount == 0 ? 1 : lcount;
+        if (settings.dpmdi) {
+            if (lcount == 0) {
+                global_map.radiance_estimate(ray.dir, inter_p, normal, re);
+            }
         }
-        res = re * mat->diffuse;
+        else {
+            res += re;
+            global_map.radiance_estimate(ray.dir, inter_p, normal, re);
+        }
+        res += re;
+        res *= mat->diffuse;
     }
-
-    float cosNL = glm::dot(-ray.dir, normal);
-    auto cur_mi = mediums.peek(); // current material and id
-    if (refract(cosNL, imodel)) {
+    if (!in_object && mat->specular != glm::vec3(0.f)) {
+        Ray nray = ray.reflect(inter_p, normal);
+        auto t = render_trace(nray, in_object, depth+1);
+        //glm::vec3 halfway = glm::normalize(nray.dir - ray.dir); // nray.dir + (-ray.dir)
+        //float coef = glm::pow(glm::max(glm::dot(normal, halfway), 0.f), mat->shininess);
+        //res += t * mat->specular * coef;
+        res += t * mat->specular;
+    }
+    if(mat->opaque != 1.f) {
+        float cur_refr, new_refr; 
+        if (imodel->equal(mediums.peek().second)) {
+            // Надо достать внешнюю по отношению к объекту среду. На вершине стека лежит объект, 
+            // в котором находится луч
+            // текущая среда - среда объекта, по которому ударил луч, т.к. мы внутри
+            cur_refr = mat->refr_index;
+            new_refr = mediums.peek(1).first->refr_index;
+        }
+        else { // Если луч входит в новый объект
+            cur_refr = mediums.peek().first->refr_index;
+            new_refr = mat->refr_index;
+        }
+        new_refr = mat->refr_index;
+        cur_refr = 0.f;
         Ray nray;
         bool succ = ray.refract(inter_p, normal,
-                cur_mi.first->refr_index, mat->refr_index, nray);
-        if (!succ) {
-            throw std::exception("ЧЗХ?");
+                cur_refr, new_refr, nray);
+        if (succ) {
+            if (imodel->equal(mediums.peek().second)) { // если луч вышел из объекта, то убираем со стека текущую среду
+                mediums.pop();
+            }
+            else { // иначе луч пересек еще один объект, добавляем текущую среду
+                mediums.push({ mat, imodel->get_id() });
+            }
+            auto t = render_trace(nray, !in_object, depth+1);
+            res = glm::mix(t, res, mat->opaque); // t * (1 - opaque) + res * opaque
         }
-        auto t = render_trace(nray);
-        res += t * (1.f - mat->opaque);
     }
-    else if (mat->specular != glm::vec3(0.f)) {
-        Ray nray = ray.reflect(inter_p, normal);
-        auto t = render_trace(nray);
-        res += t * mat->specular;
+    res += mat->emission;
+    glm::vec3 caustic(0.f);
+    if (caustic_map.radiance_estimate(ray.dir, inter_p, normal, caustic)) {
+        res += caustic;
     }
     return res;
 }
@@ -277,30 +330,26 @@ void PhotonMapping::render() {
     std::cout << "Rendering has started" << std::endl;
     float width = canvas->get_width();
     float height = canvas->get_height();
-    std::vector<glm::vec3> framebuffer(width * height);
     constexpr float fov = glm::radians(60.f);
-    scene.camera = { 0,1,1 };
-    scene.normal = { 0,0,-1 };
-    for (size_t j = 0; j < height; j++) {
-        for (size_t i = 0; i < width; i++) {
-            float dir_x = i + 0.5f - width / 2.f;
-            float dir_y = -(j + 0.5f) + height / 2.f;
-            float dir_z = -height / (2.f * tan(fov / 2.f));
-            //float x = (2 * (i + 0.5) / (float)width - 1) * tan(fov / 2.) * width / (float)height;
-            //float y = -(2 * (j + 0.5) / (float)height - 1) * tan(fov / 2.);
+    float step_x = 0.5f - width / 2.f;
+    float step_y = -0.5f + height / 2.f;
+    float dir_z = -height / (2.f * tan(fov / 2.f));
+    for (int j = 0; j < height; j++) {
+        for (int i = 0; i < width; i++) {
+            clear_mediums();
+            float dir_x = i + step_x;
+            float dir_y = -j + step_y;
             glm::vec3 dir = glm::normalize(glm::vec3(dir_x, dir_y, dir_z));
             Ray ray(scene.camera - scene.normal * 1.5f, dir);
-            //Ray ray(scene.camera, dir);
-            glm::vec3 color = render_trace(ray);
+            glm::vec3 color = render_trace(ray, false, 0);
             hdr(color);
             color *= settings.brightness;
             canvas->set_rgb(i, j, color * 255.f);
         }
         if (j % ((size_t)height / 50) == 0) {
-            std::cout << "\tPixels filled: " << j * width << " of " << width * height << std::endl;
-        }
+            std::cout << "\tPixels filled: " << (j + 1) * width << " of " << width * height << std::endl;        }
     }
-    std::cout << "\tPixels filled: " << width * height << " of " << width * height << std::endl;
+    //global_map.total_locate_time();
     std::cout << "Rendering has ended" << std::endl;
 }
 float PhotonMapping::BRDF(glm::vec3 direction, glm::vec3 location, glm::vec3 normal, const Material* mat) {

@@ -1,6 +1,38 @@
 #include "ObjLoader.h"
 #include <unordered_set>
-
+void ModelConstructInfo::swap(ModelConstructInfo& other) {
+    std::swap(this->lengths, other.lengths);
+    std::swap(this->material, other.material);
+    std::swap(this->name, other.name);
+    std::swap(this->render_mode, other.render_mode);
+    std::swap(this->smooth, other.smooth);
+    std::swap(this->vertices, other.vertices);
+}
+ModelConstructInfo::ModelConstructInfo() : lengths(), material(), name(), render_mode(), vertices() {}
+ModelConstructInfo::ModelConstructInfo(const ModelConstructInfo& other) {
+    this->lengths = other.lengths;
+    this->name = other.name;
+    this->render_mode = other.render_mode;
+    this->material = other.material;
+    this->smooth = other.smooth;
+    this->vertices = other.vertices;
+}
+ModelConstructInfo::ModelConstructInfo(ModelConstructInfo&& other) {
+    this->swap(other);
+}
+ModelConstructInfo& ModelConstructInfo::operator=(const ModelConstructInfo& other) {
+    this->lengths = other.lengths;
+    this->name = other.name;
+    this->render_mode = other.render_mode;
+    this->material = other.material;
+    this->smooth = other.smooth;
+    this->vertices = other.vertices;
+    return *this;
+}
+ModelConstructInfo& ModelConstructInfo::operator=(ModelConstructInfo&& other) {
+    this->swap(other);
+    return *this;
+}
 void loadMaterial(const std::string& mtl_path, const std::string mtl_fname,
     const std::string& material, Material& dest) {
     std::stringstream ss;
@@ -37,6 +69,9 @@ void loadMaterial(const std::string& mtl_path, const std::string mtl_fname,
                 continue;
             }
             processing = true; // Ќашли нужный материал и начали его считывать
+        }
+        else if (!processing) {
+            continue;
         }
         else if (prefix == "Ka") {
             ss >> temp_vec3.r >> temp_vec3.g >> temp_vec3.b;
@@ -77,6 +112,7 @@ void loadMaterial(const std::string& mtl_path, const std::string mtl_fname,
             dest.map_Kd = ObjTexture(map_path.c_str(), 'n');
         }
     }
+    mtl_file.close();
 }
 
 void build_vertices(std::vector<ObjVertex>& vertices, std::vector<glm::fvec3>& vertex_positions,
@@ -164,10 +200,10 @@ std::vector<ModelConstructInfo> loadOBJ(const std::string& path, const std::stri
             }
             names.insert(cur_name);
             cur.name = cur_name;
-            res.push_back(cur);
-            auto old_cur = cur;
+            auto old_mat = cur.material;
+            res.push_back(std::move(cur));
             cur = ModelConstructInfo();
-            cur.material = old_cur.material;
+            cur.material = old_mat;
             desc_finished = false;
             //std::cout << "OBJ file loaded!" << "\n";
             //return res;
@@ -190,12 +226,17 @@ std::vector<ModelConstructInfo> loadOBJ(const std::string& path, const std::stri
         }
         else if (prefix == "s")
         {
-
+            std::string temp_str;
+            ss >> temp_str;
+            if (temp_str == "1" || temp_str == "on") {
+                cur.smooth = true;
+            }
         }
         else if (prefix == "usemtl")
         {
             std::string mat_name;
             ss >> mat_name;
+            cur.material = Material();
             loadMaterial(path, mtl_fname, mat_name, cur.material);
             // позорно проиграл плюсам и сдалс€. TODO: разобратьс€ и исправить
             //Material mat(loadMaterial(path, mtl_fname, mat_name));
@@ -244,19 +285,15 @@ std::vector<ModelConstructInfo> loadOBJ(const std::string& path, const std::stri
                 }
                 else if (ss.peek() == ' ')
                 {
-                    if (counter == 0) {
-                        ps++; // ≈сли модель содержит описание вида f v v v
-                    }
-                    else {
-                        counter++; // ≈сли модель содержит описание вида f v/vt/vn v/vt/vn v/vt/vn
-                    }
+
+                    ps++; // ≈сли модель содержит описание вида f v v 
+                    counter++; // ≈сли модель содержит описание вида f v/vt/vn v/vt/vn v/vt/vn
                     ss.ignore(1, ' ');
                 }
 
                 //Reset the counter
                 if (counter > 2) {
                     counter = 0;
-                    ps++;
                 }
             }
             cur.lengths.push_back(ps);
