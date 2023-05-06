@@ -2,8 +2,6 @@
 #include "GL/glew.h"
 #include "GLM/vec3.hpp"
 
-const size_t PHOTONS_COUNT = 600000;
-
 struct Photon {
     glm::vec3 pos;
     glm::vec3 power;

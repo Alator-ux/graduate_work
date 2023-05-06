@@ -8,6 +8,7 @@
 #include <vector>
 #include <algorithm>
 #include "Photon.h"
+#include "queue"
 class PhotonMap {
     struct Node {
         Photon value;
@@ -27,22 +28,33 @@ class PhotonMap {
         NPNodeCopmarator() {}
         bool operator() (const NPNode& f, const NPNode& s) const;
     };
-    class NPContainer : private std::set<NPNode, NPNodeCopmarator> {
+    class NPContainer : public std::set<NPNode, NPNodeCopmarator> {
         size_t _capacity;
     public:
         NPContainer(size_t capacity);
         void push(const NPNode& elem);
         void pop_last();
         const NPNode top() const;
-        size_t size() const;
         std::vector<Photon> to_vector() const;
         size_t capacity() const ;
         float max_sq_dist() const;
         float min_sq_dist() const;
     };
+    class NPContainerQ : public std::priority_queue<NPNode, std::vector<NPNode>, NPNodeCopmarator> {
+        size_t _capacity;
+    public:
+        NPContainerQ(size_t capacity);
+        void fpush(const NPNode& elem);
+        void push(const NPNode& elem);
+        void pop_last();
+        std::vector<Photon> to_vector();
+        size_t capacity() const;
+        float max_sq_dist() const;
+        float min_sq_dist() const;
+    };
     struct NearestPhotons {
         glm::vec3 pos;
-        NPContainer container;
+        NPContainerQ container;
         NearestPhotons(const glm::vec3& pos, size_t capacity);
     };
     class Filter abstract {
@@ -96,6 +108,7 @@ private:
     const float gf_beta = 1.953f;
     std::vector<Filter*> filters;
     Type type;
+    size_t np_size = 2000;
     /// <summary>
     /// ¬озвращает измерение по которому "куб" имеет наибольшую длину
     /// </summary>
@@ -103,16 +116,20 @@ private:
     /// <param name="smallp">¬тора€ точка, описывающа куб</param>
     short find_largest_plane(const glm::vec3& bigp, const glm::vec3& smallp);
     void update_cube(const glm::vec3& p, glm::vec3& bigp, glm::vec3& smallp);
-    void locate(NearestPhotons* const np,
-        const int index, const Node* photon) const;
+    void locate(NearestPhotons* const np) const;
+    void locate(NearestPhotons* const np, const Node* photon) const;
 public:
     std::vector<Photon> locate(const Node* elem, size_t capacity) const;
     std::vector<Photon> locate(const glm::vec3& value, size_t capacity) const;
+    std::vector<Photon> locate_r(const glm::vec3& value, size_t capacity) const;
     bool radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& iloc, 
         const glm::vec3& norm, glm::vec3& out_rad);
     void fill_balanced(const std::vector<Photon>& points);
     PhotonMap();
     PhotonMap(Type type);
     ~PhotonMap();
+    void clear();
+    void total_locate_time();
+    void update_np_size(size_t size);
 };
 

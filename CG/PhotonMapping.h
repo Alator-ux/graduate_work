@@ -7,7 +7,7 @@
 #include <math.h>
 #include "PhotonMap.h"
 #include "Photon.h"
-#include "PathOperator.h"
+#include "PMTools.h"
 #include "Texture.h"
 class PhotonMapping {
     struct Settings {
@@ -16,6 +16,8 @@ class PhotonMapping {
         float exposure = 1.f;
         float brightness = 1.f;
         float gamma = 2.2f;
+        int max_rt_depth = 2;
+        size_t phc; // Emitted photoms capacity
     };
 private:
     // Stored photons for global illumination map
@@ -38,11 +40,11 @@ private:
     /// <param name="Value"> is a critical angle for this mediums in radians</param>
     /// </summary>
     std::map<float, float> ca_table; 
-    size_t phc; // Emitted photoms capacity
     void emit(const LightSource& ls);
     void compute_critical_angles();
     bool refract(float cosNL, const PMModel* ipmm);
-    bool find_intersection(const Ray& ray, PMModel*& imodel, glm::vec3& normal, glm::vec3& inter_p);
+    bool find_intersection(const Ray& ray, bool reverse_normal, 
+        PMModel*& imodel, glm::vec3& normal, glm::vec3& inter_p);
     /// <summary>
     /// Возвращает значение, будет ли фотон отражен диффузно, зеркально или вовсе рассеян
     /// </summary>
@@ -61,7 +63,7 @@ private:
     /// Функция трассировки луча для непосредственного рендеринга
     /// </summary>
     /// <param name="ray">- ray...</param>
-    glm::vec3 render_trace(const Ray& ray);
+    glm::vec3 render_trace(const Ray& ray, bool in_object, int depth);
     float BRDF(glm::vec3 direction, glm::vec3 location, glm::vec3 normal, const Material* mat);
     float GGX_GFunction(float cosNX, float sqRoughness); // Потерянный свет
     float GGX_DFunction(float cosNX, float sqRoughness);
@@ -80,7 +82,7 @@ private:
 public:
     PhotonMapping();
     void init(CImgTexture* canvas, const std::vector<PMModel>& objects,
-        const std::vector<LightSource>& lsources, size_t phc);
+        const std::vector<LightSource>& lsources);
     void build_map();
     void render();
     void update_exposure(float exposure);
@@ -92,4 +94,11 @@ public:
     /// <param name="value"> - if true — disable. if false - enable</param>
     /// <returns></returns>
     void update_dpmdi(bool value);
+    /// <summary>
+    /// Update the number of photons to be emitted
+    /// </summary>
+    /// <param name="phc"> - photons count</param>
+    void update_phc(size_t phc);
+    void update_gnp_count(size_t count);
+    void update_cnp_count(size_t count);
 };
