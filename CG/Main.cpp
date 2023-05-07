@@ -6,7 +6,7 @@
 #include "imgui.h"
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_glfw.h>
-#include "Widgets.h"
+#include "MainWindow.h"
 #include "Drawer.h"
 #include "Camera.h"
 #include "Texture.h"
@@ -55,15 +55,8 @@ int main() {
 
     ImGui::StyleColorsDark();
 
-    
-    auto exp_input = InputFloat("Exposure", 1.f);
-    auto br_input = InputFloat("Brightness", 1.f);
-    auto inten_input = Vec3Selector(glm::vec3(1.f));
-    auto di_cb = CheckBox("Use the photon map only for indirect illumination");
-    
-    pm.update_exposure(exp_input.get_value());
-    pm.update_brightness(br_input.get_value());
-    pm.update_ls_intensity(inten_input.get_value());
+    std::unique_ptr<Window> main_window(new MainWindow(&pm));
+   
     bool show_demo_window = false;
     std::string vbo_name = "";
     cimg_library::CImgDisplay main_disp(canvas->image, "Canvas");
@@ -75,31 +68,9 @@ int main() {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+        ImGui::ShowDemoWindow();
 
-        {
-            ImGui::Begin("Window!");
-            if (di_cb.draw()) {
-                pm.update_dpmdi(di_cb.get_value());
-            }
-            if (exp_input.draw()) {
-                pm.update_exposure(exp_input.get_value());
-            }
-            if (br_input.draw()) {
-                pm.update_brightness(br_input.get_value());
-            }
-            ImGui::Text("LS intensity");
-            if (inten_input.draw()) {
-                pm.update_ls_intensity(inten_input.get_value());
-            }
-            if (ImGui::Button("Build maps")) {
-                pm.build_map();
-            }
-            if (ImGui::Button("Render")) {
-                pm.render();
-            }
-            ImGui::End();
-        }
-
+        main_window.get()->draw();
         main_disp.display(canvas->image);
 
         // Rendering
@@ -205,7 +176,7 @@ void Init(OpenGLManager* manager) {
         scene.push_back(m);
     }
     std::vector<LightSource> lssources({ PointLight(lspos) });
-    pm.init(canvas, scene, lssources, PHOTONS_COUNT);
+    pm.init(canvas, scene, lssources);
     //pm.build_map();
 
    /* auto pm = PhotonMapping(scene, lssources, 1000);

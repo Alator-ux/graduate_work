@@ -284,7 +284,6 @@ Timer timer;
 void PhotonMap::total_locate_time() {
     timer.print_total();
 }
-const int np_size = 2000;
 bool PhotonMap::radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& iloc, const glm::vec3& norm, glm::vec3& out_rad) {
     timer.start();
     auto nearest_photons = locate_r(iloc, np_size);
@@ -363,7 +362,7 @@ void PhotonMap::fill_balanced(const std::vector<Photon>& photons) {
         }
         count++;
         
-        if (count % ((PHOTONS_COUNT / 10)) == 0) {
+        if (count % ((size / 10)) == 0) {
             std::cout << "\tPhotons inserted: " << count << std::endl;
         }
         *node = new Node();
@@ -401,11 +400,16 @@ void PhotonMap::fill_balanced(const std::vector<Photon>& photons) {
     std::cout << "Filling balanced KD-tree (photon map) ended" << std::endl;
 }
 PhotonMap::~PhotonMap() {
+    clear();
+}
+void PhotonMap::clear() {
     delete root;
     root = nullptr;
     for (Filter* filter : filters) {
         delete filter;
     }
 }
-
+void PhotonMap::update_np_size(size_t size) {
+    this->np_size = size;
+}
 /* ========== PhotonMapp class end ========== */

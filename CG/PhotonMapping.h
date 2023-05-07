@@ -17,6 +17,7 @@ class PhotonMapping {
         float brightness = 1.f;
         float gamma = 2.2f;
         int max_rt_depth = 2;
+        size_t phc; // Emitted photoms capacity
     };
 private:
     // Stored photons for global illumination map
@@ -39,7 +40,6 @@ private:
     /// <param name="Value"> is a critical angle for this mediums in radians</param>
     /// </summary>
     std::map<float, float> ca_table; 
-    size_t phc; // Emitted photoms capacity
     void emit(const LightSource& ls);
     void compute_critical_angles();
     bool refract(float cosNL, const PMModel* ipmm);
@@ -82,7 +82,7 @@ private:
 public:
     PhotonMapping();
     void init(CImgTexture* canvas, const std::vector<PMModel>& objects,
-        const std::vector<LightSource>& lsources, size_t phc);
+        const std::vector<LightSource>& lsources);
     void build_map();
     void render();
     void update_exposure(float exposure);
@@ -94,4 +94,11 @@ public:
     /// <param name="value"> - if true — disable. if false - enable</param>
     /// <returns></returns>
     void update_dpmdi(bool value);
+    /// <summary>
+    /// Update the number of photons to be emitted
+    /// </summary>
+    /// <param name="phc"> - photons count</param>
+    void update_phc(size_t phc);
+    void update_gnp_count(size_t count);
+    void update_cnp_count(size_t count);
 };

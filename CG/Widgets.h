@@ -211,6 +211,34 @@ public:
     }
 };
 
+class TabBar {
+    std::vector<std::string> labels;
+    int active = 0;
+public:
+    TabBar(std::vector<std::string> labels) {
+        this->labels = labels;
+    }
+    bool draw() {
+        bool was_pressed = false;
+        ImGui::BeginTabBar("aa");
+        for (size_t i = 0; i < labels.size(); i++) {
+            ImGui::SetNextItemWidth(100);
+            if (ImGui::TabItemButton(labels[i].c_str(), active == i)) {
+                was_pressed = true;
+                active = i;
+            }
+        }
+        ImGui::EndTabBar();
+        return was_pressed;
+    }
+    int get_value() {
+        return active;
+    }
+    std::string get_label() {
+        return active < 0 ? "" : labels[active];
+    }
+};
+
 class InputFloat {
     std::string label;
     float value = 0.0f;
@@ -229,6 +257,31 @@ public:
         return touched;
     }
     float get_value() {
+        return value;
+    }
+};
+
+class InputSizeT {
+    std::string label;
+    int value = 0.0f;
+public:
+    InputSizeT(const std::string& label) {
+        this->label = label;
+    }
+    InputSizeT(const std::string& label, int init_value) {
+        this->label = label;
+        this->value = init_value;
+    }
+    bool draw() {
+        ImGui::PushItemWidth(60);
+        bool touched = ImGui::InputInt(label.c_str(), &value, 0);
+        if (value < 0) {
+            value = 0;
+        }
+        ImGui::PopItemWidth();
+        return touched;
+    }
+    int get_value() {
         return value;
     }
 };

@@ -2,11 +2,10 @@
 /* ========== PhotonMapping class begin ========== */
 PhotonMapping::PhotonMapping() : global_map(PhotonMap::Type::def), caustic_map(PhotonMap::Type::caustic) {}
 void PhotonMapping::init(CImgTexture* canvas, const std::vector<PMModel>& objects,
-    const std::vector<LightSource>& lsources, size_t phc) {
+    const std::vector<LightSource>& lsources) {
     this->scene = std::move(PMScene(objects));
     this->lsources = lsources;
     this->canvas = canvas;
-    this->phc = phc;
     this->global_sp = std::vector<Photon>();
     this->caustic_sp = std::vector<Photon>();
     this->ca_table = std::map<float, float>();
@@ -21,7 +20,7 @@ void PhotonMapping::clear_mediums() {
 }
 void PhotonMapping::emit(const LightSource& ls) {
     size_t ne = 0;// Number of emitted photons
-    while (ne < phc) {
+    while (ne < settings.phc) {
         clear_mediums();
         path_operator.clear();
         float x, y, z;
@@ -31,10 +30,10 @@ void PhotonMapping::emit(const LightSource& ls) {
             z = Random<float>::random(-1.f, 1.f);
         } while (x * x + y * y + z * z > 1.f); // TODO normalize ?
         Ray ray(ls.position, { x,y,z });
-        auto pp = ls.intensity / (float)PHOTONS_COUNT; // photon power
+        auto pp = ls.intensity / (float)settings.phc; // photon power
         trace(ray, false, pp);
         ne++;
-        if (ne % (PHOTONS_COUNT / 10) == 0) {
+        if (ne % (settings.phc / 10) == 0) {
             std::cout << "\tPhotons emited: " << ne << std::endl;
         }
     }
@@ -233,9 +232,11 @@ void PhotonMapping::build_map() {
     }
     std::cout << "Photon emission ended" << std::endl;
     std::cout << "Global map:" << std::endl;
+    global_map.clear();
     global_map.fill_balanced(global_sp);
     global_sp.clear();
     std::cout << "Caustic map:" << std::endl;
+    caustic_map.clear();
     caustic_map.fill_balanced(caustic_sp);
     caustic_sp.clear();
     return ;
@@ -408,4 +409,13 @@ void PhotonMapping::update_ls_intensity(const glm::vec3& intensity) {
 }
 void PhotonMapping::update_dpmdi(bool value) {
     settings.dpmdi = value;
+}
+void PhotonMapping::update_phc(size_t phc) {
+    settings.phc = phc;
+}
+void PhotonMapping::update_gnp_count(size_t count) {
+    global_map.update_np_size(count);
+}
+void PhotonMapping::update_cnp_count(size_t count) {
+    caustic_map.update_np_size(count);
 }

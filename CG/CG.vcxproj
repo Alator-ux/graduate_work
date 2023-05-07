@@ -146,6 +146,7 @@
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="ObjLoader.cpp" />
     <ClCompile Include="OpenGLWrappers.cpp" />
     <ClCompile Include="PhotonMap.cpp" />
@@ -162,6 +163,7 @@
     <ClInclude Include="FigureBuilder.h" />
     <ClInclude Include="Figure.h" />
     <ClInclude Include="Light.h" />
+    <ClInclude Include="MainWindow.h" />
     <ClInclude Include="Material.h" />
     <ClInclude Include="ObjLoader.h" />
     <ClInclude Include="ObjMesh.h" />

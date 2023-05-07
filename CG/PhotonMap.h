@@ -108,6 +108,7 @@ private:
     const float gf_beta = 1.953f;
     std::vector<Filter*> filters;
     Type type;
+    size_t np_size = 2000;
     /// <summary>
     /// Возвращает измерение по которому "куб" имеет наибольшую длину
     /// </summary>
@@ -127,6 +128,8 @@ public:
     PhotonMap();
     PhotonMap(Type type);
     ~PhotonMap();
+    void clear();
     void total_locate_time();
+    void update_np_size(size_t size);
 };
 
