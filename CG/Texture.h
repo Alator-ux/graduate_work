@@ -1,46 +1,48 @@
 #pragma once
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include "GLM/glm.hpp"
 #include <string>
-#include <glm/vec3.hpp>
-#include <glm/vec2.hpp>
 #include <vector>
 #include "CImg.h"
 #include <stdint.h>
 #include "stb_image.h"
-class Texture {
-public:
+struct Texture {
     // Здесь вы наблюдаете позор. Я просто не знаю почему, когда я делаю new Texture до какого-то момента id сохраняется,
     // а после становится неиницализованным. Может быть дело, в копировании.
-    bool initialized = false; 
-	GLuint id;
-	Texture() {
-	}
+    bool initialized = false;
+    GLuint id;
+    Texture(bool init = false) {
+        if (init) {
+            glGenTextures(1, &id);
+        }
+    }
     Texture(const Texture& other) {
         this->id = other.id;
+        this->initialized = other.initialized;
     }
-	void create_rgba16f_buffer(GLuint width, GLuint height) {
-		glGenTextures(1, &id);
-		glBindTexture(GL_TEXTURE_2D, id);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    void create_rgba16f_buffer(GLuint width, GLuint height) {
+        glGenTextures(1, &id);
+        glBindTexture(GL_TEXTURE_2D, id);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         initialized = true;
-	}
-	void create_rgb_buffer(GLuint width, GLuint height, unsigned char* data = NULL) {
-		glGenTextures(1, &id);
-		glBindTexture(GL_TEXTURE_2D, id);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, (void*)data);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    void create_rgb_buffer(GLuint width, GLuint height, unsigned char* data = NULL) {
+        glGenTextures(1, &id);
+        glBindTexture(GL_TEXTURE_2D, id);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, (void*)data);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         initialized = true;
-	}
-	void create_rgba_buffer(GLuint width, GLuint height) {
-		glGenTextures(1, &id);
-		glBindTexture(GL_TEXTURE_2D, id);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
+    void create_rgba_buffer(GLuint width, GLuint height) {
+        glGenTextures(1, &id);
+        glBindTexture(GL_TEXTURE_2D, id);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         initialized = true;
     }
     void create_wrap_clamp_buffer(GLuint width, GLuint height) {
@@ -81,21 +83,26 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         initialized = true;
-	}
-	void bind(const GLint texture_unit = 0)
-	{
-		glActiveTexture(GL_TEXTURE0 + texture_unit);
-		glBindTexture(GL_TEXTURE_2D, id);
-	}
-	GLuint getId() {
-		return id;
-	}
-	
+    }
+    void bind(const GLint texture_unit = 0)
+    {
+        glActiveTexture(GL_TEXTURE0 + texture_unit);
+        glBindTexture(GL_TEXTURE_2D, id);
+    }
+    GLuint getId() {
+        return id;
+    }
+    void del() {
+        glDeleteTextures(1, &id);
+        initialized = false;
+    }
     static void unbind()
     {
         glBindTexture(GL_TEXTURE_2D, 0);
-    }
+    };
 };
+
+
 
 class CImgTexture {
 public:

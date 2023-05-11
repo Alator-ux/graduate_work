@@ -10,36 +10,138 @@
 
 bool string_item_getter(void* data, int index, const char** output);
 bool primitive_item_getter(void* data, int index, const char** output);
-
-class CheckBox {
+class Widget abstract {
+protected:
     const char* label;
-    bool checked;
+    bool _activatable;
+    bool _activated;
 public:
-    CheckBox(const char* label, bool checked = false) {
-        this->label = label;
-        this->checked = checked;
+    Widget(const char* label, bool activatable) : label(label), _activatable(activatable),
+        _activated(true) {}
+    virtual bool draw() = 0;
+    virtual const void* get_value() = 0;
+    void activate() {
+        if (_activatable) {
+            _activated = true;
+        }
+    };
+    void disable() {
+        if (_activatable) {
+            _activated = false;
+        }
     }
-    bool draw() {
-        return ImGui::Checkbox(label, &checked);
+    bool activatable() {
+        return _activatable;
     }
-    bool get_value() {
-        return checked;
+    bool activated() {
+        return _activated;
+    }
+};
+
+class Row : public Widget {
+    std::vector<std::shared_ptr <Widget>> childs;
+public:
+    Row(const char* label) : Widget(label, false), childs() {}
+    Row(const char* label, std::vector<std::shared_ptr <Widget>>&& childs) : Widget(label, false) {
+        set_childs(std::move(childs));
+        //this->active = -1;
+        /*for (size_t i = 0; i < this->childs.size(); i++) {
+            if (this->childs[i].activated()) {
+                if (this->active == -1) {
+                    this->active = i;
+                }
+                else {
+                    this->childs[i].disable();
+                }
+            }
+        }
+        if (this->active == -1) {
+            this->childs.front().activate();
+            this->active = 0;
+        }*/
+    }
+    void set_childs(std::vector<std::shared_ptr <Widget>>&& childs) {
+        this->childs = std::move(childs);
+    }
+    bool draw() override {
+        ImGui::Text(label);
+        bool was_pressed = false;
+        for (size_t i = 0; i < childs.size() - 1; i++) {
+            bool pressed = childs[i]->draw();
+            ImGui::SameLine();
+            if (pressed) {
+                was_pressed = true;
+            }
+        }
+        if (childs.back()->draw()) {
+            was_pressed = true;
+        }
+        return was_pressed;
+    }
+    const void* get_value() override {
+        return nullptr;
+    }
+    const std::vector<std::shared_ptr <Widget>>* get_childs() {
+        return &childs;
+    }
+};
+class CheckBox : public Widget {
+public:
+    CheckBox(const char* label, bool checked = false) : Widget(label, true) {
+        this->_activated = checked;
+    }
+    bool draw() override {
+        return ImGui::Checkbox(label, &_activated);
+    }
+    const void* get_value() override {
+        return (void*)(&_activated);
+    }
+    void activate() {
+        _activated = true;
+    }
+    void disable() { 
+        _activated = false;
     }
 };
 
 
-class DropDownMenu {
-    const char* label;
+class DropDownMenu : public Widget {
     std::vector<std::string> items;
+<<<<<<< HEAD
 public:
     int selectedItem = 0;
     DropDownMenu(const char* label, std::vector<std::string> items) {
         this->label = label;
+=======
+    float width;
+    int selectedItem = 0;
+public:
+    DropDownMenu(const char* label, const std::vector<std::string>& items, float width = -1) : Widget(label, true) {
+>>>>>>> a5fb506 (fake commit ahahah)
         this->items = items;
     }
+<<<<<<< HEAD
     bool draw() {
         return ImGui::Combo(label, &selectedItem, string_item_getter, 
                             (void*)items.data(), (int)items.size());
+=======
+    bool draw() override {
+        if (width == -1) {
+            return ImGui::Combo(label, &selectedItem, string_item_getter,
+                (void*)items.data(), (int)items.size());
+        }
+        ImGui::PushItemWidth(width);
+        bool touched = ImGui::Combo(label, &selectedItem, string_item_getter,
+            (void*)items.data(), (int)items.size());
+        ImGui::PopItemWidth();
+        return touched;
+>>>>>>> a5fb506 (fake commit ahahah)
+    }
+    const void* get_item() {
+        return (void*)&items[selectedItem];
+    }
+    const void* get_value() {
+        return (void*)&selectedItem;
     }
 };
 
@@ -258,6 +360,31 @@ public:
         this->label = label;
     }
     InputSizeT(const std::string& label, int init_value) {
+        this->label = label;
+        this->value = init_value;
+    }
+    bool draw() {
+        ImGui::PushItemWidth(60);
+        bool touched = ImGui::InputInt(label.c_str(), &value, 0);
+        if (value < 0) {
+            value = 0;
+        }
+        ImGui::PopItemWidth();
+        return touched;
+    }
+    int get_value() {
+        return value;
+    }
+};
+
+class InputInt {
+    std::string label;
+    int value = 0.0f;
+public:
+    InputInt(const std::string& label) {
+        this->label = label;
+    }
+    InputInt(const std::string& label, int init_value) {
         this->label = label;
         this->value = init_value;
     }

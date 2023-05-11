@@ -9,7 +9,6 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_glfw.h>
 #include "MainWindow.h"
-#include "Drawer.h"
 #include "Camera.h"
 #include "Texture.h"
 #include "ObjModel.h"
@@ -21,9 +20,9 @@ const GLuint W_WIDTH = 600;
 const GLuint W_HEIGHT = 600;
 std::vector<Shader> shaders;
 Shader lampShader;
-Drawer drawer;
+PMDrawer drawer(600, 600);
+PMSettingsUpdater pmsu;
 Camera camera;
-CImgTexture* canvas;
 PhotonMapping pm;
 void Init(OpenGLManager*);
 void Draw(int, float, float, double);
@@ -50,22 +49,31 @@ int main() {
 
     auto manager = OpenGLManager::get_instance();
     Init(manager);
-
+    drawer.opengl_init();
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     ImGui::StyleColorsDark();
 
-    std::unique_ptr<Window> main_window(new MainWindow(&pm));
+   // pmsu.update_xstart(300);
+
+    std::unique_ptr<Window> main_window(new MainWindow(&pmsu, &pm, &drawer));
    
     bool show_demo_window = false;
     std::string vbo_name = "";
-    cimg_library::CImgDisplay main_disp(canvas->image, "Canvas");
+    pmsu.window_settings.width = pmsu.window_settings.output->width + 500;
+    pmsu.window_settings.height = pmsu.window_settings.output->height;
+    glfwSetWindowSize(window, pmsu.window_settings.width, pmsu.window_settings.height);
     while (!glfwWindowShouldClose(window))
     {   
+        if (pmsu.window_settings.changed.resolution) {
+            //glfwSetWindowSize(window, 
+            //    pmsu.window_settings.output->width + 500, pmsu.window_settings.output->height);
+            glfwSetWindowSize(window,
+                   pmsu.window_settings.output->width + 500, pmsu.window_settings.output->height);
+        }
         glfwPollEvents();
-
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -73,15 +81,14 @@ int main() {
         ImGui::ShowDemoWindow();
 
         main_window.get()->draw();
-        main_disp.display(canvas->image);
 
         // Rendering
         ImGui::Render();
         int display_w, display_h;
         glfwMakeContextCurrent(window);
         glfwGetFramebufferSize(window, &display_w, &display_h);
-        glViewport(0, 0, display_w, display_h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        drawer.display();
         Do_Movement();
         double time = glfwGetTime();
         Draw(mode, 0,0, time);
@@ -140,7 +147,6 @@ void Do_Movement() {
 }
 void Release() {
     OpenGLManager::get_instance()->release();
-    delete canvas;
 }
 
 void print_vec3(const glm::vec3& elem) {
@@ -158,27 +164,35 @@ void print_vec(const std::vector<glm::vec3>& c) {
 size_t pmpointcount;
 void Init(OpenGLManager* manager) {
     Random<unsigned>::set_seed();
-    drawer = Drawer(W_WIDTH, W_HEIGHT);
     
     Shader shader = Shader();
     shader.init_shader("main.vert", "main.frag");
     shaders.push_back(shader);
-    canvas = new CImgTexture(300, 300);
 
     //auto map = loadOBJ("./models/cornell_box_original", "CornellBox-Original.obj");
     auto map = loadOBJ("./models/cornell_box_sphere", "CornellBox-Sphere.obj");
+    //auto map = loadOBJ("./models/cornell_box_water", "CornellBox-Water.obj");
+    //auto map = loadOBJ("./models/cornell_box_high_water", "cornellbox-water2.obj");
+    //auto map = loadOBJ("./models/ring", "ring.obj");
+    //auto map = loadOBJ("./models/wine_glass", "WineGlasses.obj");
+    //auto map = loadOBJ("./models/raw_ring", "simple_ring.obj");
+    //auto map = loadOBJ("./models/ring", "metal_ring.obj");
+    //auto map = loadOBJ("./models/wine_glass", "glasses.obj");
     glm::vec3 lspos(0.f);
     std::vector<PMModel> scene;
     for (auto& kv : map) {
+        LightSource* ls = nullptr;
         if (kv.name == "light") {
             std::for_each(kv.vertices.begin(), kv.vertices.end(), [&lspos](const ObjVertex& vert) {lspos += vert.position;});
             lspos /= kv.vertices.size();
+            ls = new LightSource(lspos);
         }
-        auto m = PMModel(kv);
+        PMModel m(kv, ls);
         scene.push_back(m);
     }
+
     std::vector<LightSource> lssources({ PointLight(lspos) });
-    pm.init(canvas, scene, lssources);
+    pm.init(&drawer, scene, lssources, pmsu);
     //pm.build_map();
 
    /* auto pm = PhotonMapping(scene, lssources, 1000);
