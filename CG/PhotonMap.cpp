@@ -72,7 +72,6 @@ void PhotonMap::NPContainerQ::fpush(const NPNode& elem) {
     priority_queue::push(elem);
 }
 void PhotonMap::NPContainerQ::push(const NPNode& elem) {
-    //std::cout << this->size() << std::endl;
      // если рассматриваемый больше максимального, то он нам не нужен
     if (priority_queue::comp(priority_queue::top(), elem)) {
         return;
@@ -82,28 +81,24 @@ void PhotonMap::NPContainerQ::push(const NPNode& elem) {
         priority_queue::pop();
     }
 }
-void PhotonMap::NPContainerQ::pop_last() {
-    if (this->size() == 0) {
+void PhotonMap::NPContainerQ::pop() {
+    if (priority_queue::size() == 0) {
         throw std::exception("Trying pop from zero size container");
     }
     priority_queue::pop();
 }
-std::vector<Photon> PhotonMap::NPContainerQ::to_vector() {
-    std::vector<Photon> res;
-    while (!empty()) {
-        res.push_back(this->top().node->value);
-        pop_last();
-    }
-    return res;
+const Photon& PhotonMap::NPContainerQ::operator[](size_t index) {
+    return priority_queue::c[index].node->value;
 }
-float PhotonMap::NPContainerQ::max_sq_dist() const { return this->top().sq_dist; }
-float PhotonMap::NPContainerQ::min_sq_dist() const { return 0; }
+float PhotonMap::NPContainerQ::max_dist() const { return priority_queue::top().sq_dist; }
+float PhotonMap::NPContainerQ::min_dist() const { return 0; }
 size_t PhotonMap::NPContainerQ::capacity() const { return _capacity; }
 /* ========== NPContainer class end ========== */
 
 /* ==========! PhotonMapp substruct !========== */
 /* ========== NearestPhotons struct begin ========== */
-PhotonMap::NearestPhotons::NearestPhotons(const glm::vec3& pos, size_t capacity) : pos(pos), container(NPContainerQ(capacity))
+PhotonMap::NearestPhotons::NearestPhotons(const glm::vec3& pos, const glm::vec3& normal, 
+    size_t capacity) : pos(pos), normal(normal), container(NPContainerQ(capacity))
 {}
 /* ========== NearestPhotons struct end ========== */
 
@@ -170,13 +165,13 @@ void PhotonMap::locate(NearestPhotons* const np) const {
         }
         float dist1 = np->pos[p->plane] - p->value.pos[p->plane];
         if (dist1 > 0.f) { // if dist1 is positive search right plane
-            if (dist1 * dist1 < np->container.max_sq_dist()) {
+            if (dist1 * dist1 < np->container.max_dist()) {
                 node_recur.push(p->left);
             }
             node_recur.push(p->right);
         }
         else { // dist1 is negative search left first
-            if (dist1 * dist1 < np->container.max_sq_dist()) {
+            if (dist1 * dist1 < np->container.max_dist()) {
                 node_recur.push(p->right);
             }
             node_recur.push(p->left);
@@ -230,25 +225,28 @@ void PhotonMap::locate(NearestPhotons* const np, const Node* photon) const {
     dist1 = np->pos[p->plane] - p->value.pos[p->plane];
     if (dist1 > 0.f) { // if dist1 is positive search right plane
         locate(np, p->right);
-        if (dist1 * dist1 < np->container.max_sq_dist()) {
+        if (dist1 * dist1 < np->container.max_dist()) {
             locate(np, p->left);
         }
     }
     else { // dist1 is negative search left first
         locate(np, p->left);
-        if (dist1 * dist1 < np->container.max_sq_dist()) {
+        if (dist1 * dist1 < np->container.max_dist()) {
             locate(np, p->right);
         }
     }
     // compute squared distance between current photon and np->pos
-    auto dists1 = p->value.pos - np->pos;
-    float sq_dist = dists1.x * dists1.x + dists1.y * dists1.y + dists1.z * dists1.z;
+    //auto dists1 = p->value.pos - np->pos;
+    //float z = dists1.x * dists1.x + dists1.y * dists1.y + dists1.z * dists1.z;
+    // dpn = dp * (1 + f * |cos(nx, x -> p)|) = dp + f * dp * |cos(nx, x->p)|
+    float dpn = glm::distance(p->value.pos, np->pos) * (1.f + settings.disc_compression * 
+        glm::abs(glm::dot(np->normal, glm::normalize(p->value.pos - np->pos))));
     count++;
    // std::cout << "Count: " << count << std::endl;
    // std::cout << "Size: ";
-    np->container.push(NPNode(p, sq_dist));
+    np->container.push(NPNode(p, dpn));
 }
-std::vector<Photon> PhotonMap::locate(const Node* elem, size_t capacity) const {
+/*std::vector<Photon> PhotonMap::locate(const Node* elem, size_t capacity) const {
     NearestPhotons np(elem->value.pos, capacity);
     np.container.fpush({ elem, max_distance * max_distance });
     locate(&np);
@@ -267,18 +265,17 @@ std::vector<Photon> PhotonMap::locate(const glm::vec3& value, size_t capacity) c
     }
     delete susNode;
     return np.container.to_vector();
-}
-std::vector<Photon> PhotonMap::locate_r(const glm::vec3& value, size_t capacity) const {
-    NearestPhotons np(value, capacity);
-    Node* susNode = new Node(Photon(value, glm::vec3(0.f), glm::vec3(0.f)), 0);
-    np.container.fpush({ susNode, max_distance * max_distance });
+}*/
+bool PhotonMap::locate_r(NearestPhotons* np) const {
+    Node* susNode = new Node(Photon(np->pos, glm::vec3(0.f), glm::vec3(0.f)), 0);
+    np->container.fpush({ susNode, max_distance * max_distance });
     count = 0;
-    locate(&np, root);
-    if (np.container.size() < np.container.capacity()) {
-        np.container.pop_last();
+    locate(np, root);
+    if (np->container.size() < np->container.capacity()) {
+        np->container.pop();
     }
     delete susNode;
-    return np.container.to_vector();
+    return np->container.size() == settings.np_size;
 }
 Timer timer;
 void PhotonMap::total_locate_time() {
@@ -286,28 +283,29 @@ void PhotonMap::total_locate_time() {
 }
 bool PhotonMap::radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& iloc, const glm::vec3& norm, glm::vec3& out_rad) {
     timer.start();
-    auto nearest_photons = locate_r(iloc, np_size);
+    NearestPhotons np(iloc, norm, settings.np_size);
+    if (!locate_r(&np)) {
+        //return false;
+    }
     timer.end();
     timer.sum_total();
-    if (nearest_photons.size() < np_size) {
-        return false;
-    }
 
     out_rad.x = out_rad.y = out_rad.z = 0;
     float r, filter_r;
-    filter_r = r = glm::distance(iloc, (nearest_photons.begin())->pos); // todo mb begin
+    filter_r = r = glm::distance(iloc, (np.container[0].pos));
     if (type == Type::caustic) {
         filter_r *= filter_r;
     }
-    for (auto& p : nearest_photons) { // str 88
+    for (size_t i = 0; i < np.container.size(); i++) {
+        auto& p = np.container[i];
         float cosNL = glm::dot(-p.inc_dir, norm);
-        if (cosNL > 0.f) { 
-            out_rad += p.power *cosNL*(this->filters[type])->call(p.pos, iloc, filter_r);
+        if (cosNL > 0.f) {
+            out_rad += p.power * cosNL * (this->filters[type])->call(p.pos, iloc, filter_r);
         }
     }
 
     //float temp = (1.f / (M_PI * r * r * this->filters[type]->norm_coef));
-    float temp = (1.f / (M_PI * (r * r) *this->filters[type]->norm_coef));
+    float temp = (1.f / (M_PI * (r * r) * this->filters[type]->norm_coef));
     out_rad *= temp;
     return true;
 }
@@ -320,8 +318,8 @@ void PhotonMap::fill_balanced(const std::vector<Photon>& photons) {
     size = photons.size();
     
     filters = std::vector<Filter*>(2);
-    filters[0] = new ConeFilter(cf_k);
-    filters[1] = new GaussianFilter(gf_alpha, gf_beta);
+    filters[0] = new ConeFilter(settings.cf_k);
+    filters[1] = new GaussianFilter(settings.gf_alpha, settings.gf_beta);
     //heap = new glm::vec3*[size];
 
     if (photons.size() == 0) {
@@ -410,6 +408,9 @@ void PhotonMap::clear() {
     }
 }
 void PhotonMap::update_np_size(size_t size) {
-    this->np_size = size;
+    this->settings.np_size = size;
+}
+void PhotonMap::update_disc_compression(float coef) {
+    this->settings.disc_compression = coef;
 }
 /* ========== PhotonMapp class end ========== */

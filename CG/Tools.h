@@ -33,6 +33,9 @@ struct Random {
     /// Возвращает случайное число от 'from' до 'to' включительно
     /// </summary>
     static T random(T from, T to) {
+        if (from == to) {
+            return from;
+        }
         return from + static_cast<T>(rand()) / (static_cast<T>(RAND_MAX) / static_cast<T>(to - from));
     }
 };
@@ -93,7 +96,13 @@ struct Vec3Hash {
         return h1 ^ (h2 << 1) ^ (h3 << 2);
     }
 };
-
+template <typename Iterator,
+    typename R = typename std::iterator_traits<Iterator>::reference>
+auto deref(std::pair<Iterator, Iterator> p)
+-> std::pair<R, R>
+{
+    return { *p.first, *p.second };
+}
 template<typename T>
 class DeepLookStack : public std::stack<T>
 {

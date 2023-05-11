@@ -60,7 +60,7 @@ bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, f
     out.origin = from;
     return true;*/
 
-    float eta = refr1 / refr2; // relative index of refraction
+    /*float eta = refr1 / refr2; // relative index of refraction
     float ndd = glm::dot(dir, normal); // n dot dir, cos(theta1)
     auto theta = 1.f - eta * eta * (1.f - ndd * ndd);
     if (theta < 0.f) {
@@ -68,7 +68,7 @@ bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, f
     }
     float theta_sqrt = glm::sqrt(theta);
     out.origin = from;
-    out.dir = glm::normalize(eta * (dir - ndd * normal) - theta_sqrt * normal);
+    out.dir = glm::normalize(eta * (dir - ndd * normal) - theta_sqrt * normal);*/
 
     //out.dir = glm::normalize(dir * theta - (theta_sqrt + eta * ndd) * normal);
     
@@ -85,7 +85,7 @@ bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, f
     out.dir = glm::normalize(dir * eta - normal * (-cosi + eta * cosi));
     return true;*/
 
-    /*float eta = refr1 / refr2;
+    float eta = refr1 / refr2;
     float c1 = -glm::dot(dir, normal);
     float w = eta * c1;
     float c2m = (w - eta) * (w + eta);
@@ -93,19 +93,22 @@ bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, f
         return false;
     }
     out.dir = eta * dir + (w - sqrt(1.f + c2m)) * normal;
-    out.origin = from;*/
+    out.origin = from;
+    return true;
 }
 // ========== Ray section end ==========
 
 // ========== PMModel section start ==========
 size_t PMModel::id_gen = 1;
 float PMModel::eps = 0.0001f;
-PMModel::PMModel(const PMModel& other) : name(other.name) {
+PMModel::PMModel(const PMModel& other) : name(other.name), ls(other.ls) {
     this->id = other.id;
     this->mci = other.mci;
     this->bcache = other.bcache;
+    this->ls = other.ls;
 }
-PMModel::PMModel(const ModelConstructInfo& mci) : name(mci.name) {
+PMModel::PMModel(const ModelConstructInfo& mci, 
+    LightSource* ls) : name(mci.name), ls(ls) {
     this->mci = mci;
     this->id = id_gen;
     this->bcache = std::unordered_map<glm::vec3, BarycentricCache, Vec3Hash>();
@@ -223,11 +226,14 @@ bool PMModel::intersection(const Ray& ray, bool in_object, float& intersection, 
     
     return true;
 }
+glm::vec3 PMModel::get_normal(size_t i) const {
+    return mci.vertices[i].normal;
+}
 void PMModel::get_normal(const glm::vec3& inter_ind, const glm::vec3& point, glm::vec3& normal) {
     if (mci.smooth) {
         auto uvw = barycentric_coords(point, inter_ind);
-        normal = glm::normalize(mci.vertices[inter_ind.x].normal * uvw[0] +
-            mci.vertices[inter_ind.y].normal * uvw[1] + mci.vertices[inter_ind.z].normal * uvw[2]);
+        normal = glm::normalize(mci.vertices[inter_ind.x].normal * uvw.x +
+            mci.vertices[inter_ind.y].normal * uvw.y + mci.vertices[inter_ind.z].normal * uvw.z);
         return;
     }
     normal = mci.vertices[inter_ind.x].normal;
@@ -241,8 +247,16 @@ bool PMModel::equal(const PMModel& other) const {
 bool PMModel::equal(size_t other_id) const {
     return this->id == other_id;
 }
+void PMModel::set_light_intensity(const glm::vec3& value) {
+    if (ls != nullptr) {
+        ls->intensity = value;
+    }
+}
 size_t PMModel::get_id() const {
     return id;
+}
+const LightSource* PMModel::get_ls() const {
+    return ls;
 }
 glm::vec3* PMModel::get_wn() const
 {
@@ -263,6 +277,36 @@ glm::vec3* PMModel::get_wn() const
     res[0] = left_lower;
     res[1] = right_upper;
     res[2] = glm::normalize(normal);
+    return res;
+}
+std::pair<glm::vec3, glm::vec3> PMModel::get_radiation_info() const {
+    std::pair<glm::vec3, glm::vec3> res;
+    size_t r;
+    glm::vec3 inds;
+    if (mci.render_mode == GL_TRIANGLES) {
+        r = Random<size_t>::random(0, (mci.vertices.size() - 3) / 3);
+        r *= 3;
+        inds = glm::vec3(r, r + 1, r + 2);
+    }
+    else if (mci.render_mode == GL_QUADS) {
+        r = Random<size_t>::random(0, (mci.vertices.size() - 4) / 4);
+        r *= 4;
+        if (Random<float>::random() < 0.5f) {
+            inds = glm::vec3(r, r + 1, r + 3);
+        }
+        else {
+            inds = glm::vec3(r + 1, r + 2, r + 3);
+        }
+    }
+    glm::vec3 uvw;
+    uvw.x = Random<float>::random(0.f, 1.f - eps);
+    uvw.y = Random<float>::random(0.f, 1.f - eps);
+    uvw.z = 1.f - uvw.x - uvw.y;
+    
+    res.first = uvw.x * mci.vertices[inds.x].position + uvw.y * mci.vertices[inds.y].position +
+        uvw.z * mci.vertices[inds.z].position;
+    res.second = uvw.x * mci.vertices[inds.x].normal + uvw.y * mci.vertices[inds.y].normal +
+        uvw.z * mci.vertices[inds.z].normal;
     return res;
 }
 

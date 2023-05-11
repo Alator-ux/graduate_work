@@ -286,6 +286,31 @@ public:
     }
 };
 
+class InputInt {
+    std::string label;
+    int value = 0.0f;
+public:
+    InputInt(const std::string& label) {
+        this->label = label;
+    }
+    InputInt(const std::string& label, int init_value) {
+        this->label = label;
+        this->value = init_value;
+    }
+    bool draw() {
+        ImGui::PushItemWidth(60);
+        bool touched = ImGui::InputInt(label.c_str(), &value, 0);
+        if (value < 0) {
+            value = 0;
+        }
+        ImGui::PopItemWidth();
+        return touched;
+    }
+    int get_value() {
+        return value;
+    }
+};
+
 class Vec3Selector {
     std::vector<InputFloat> text_fields;
     static char identifier;

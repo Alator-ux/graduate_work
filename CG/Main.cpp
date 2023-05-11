@@ -164,17 +164,22 @@ void Init(OpenGLManager* manager) {
     canvas = new CImgTexture(300, 300);
 
     //auto map = loadOBJ("./models/cornell_box_original", "CornellBox-Original.obj");
-    auto map = loadOBJ("./models/cornell_box_sphere", "CornellBox-Sphere.obj");
+    //auto map = loadOBJ("./models/cornell_box_sphere", "CornellBox-Sphere.obj");
+    auto map = loadOBJ("./models/cornell_box_water", "CornellBox-Water.obj");
+    //auto map = loadOBJ("./models/cornell_box_high_water", "cornellbox-water2.obj");
     glm::vec3 lspos(0.f);
     std::vector<PMModel> scene;
     for (auto& kv : map) {
+        LightSource* ls = nullptr;
         if (kv.name == "light") {
             std::for_each(kv.vertices.begin(), kv.vertices.end(), [&lspos](const ObjVertex& vert) {lspos += vert.position;});
             lspos /= kv.vertices.size();
+            ls = new LightSource(lspos);
         }
-        auto m = PMModel(kv);
+        PMModel m(kv, ls);
         scene.push_back(m);
     }
+
     std::vector<LightSource> lssources({ PointLight(lspos) });
     pm.init(canvas, scene, lssources);
     //pm.build_map();

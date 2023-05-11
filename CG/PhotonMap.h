@@ -46,16 +46,17 @@ class PhotonMap {
         NPContainerQ(size_t capacity);
         void fpush(const NPNode& elem);
         void push(const NPNode& elem);
-        void pop_last();
-        std::vector<Photon> to_vector();
+        void pop();
         size_t capacity() const;
-        float max_sq_dist() const;
-        float min_sq_dist() const;
+        float max_dist() const;
+        float min_dist() const;
+        const Photon& operator[](size_t index);
     };
     struct NearestPhotons {
         glm::vec3 pos;
+        glm::vec3 normal;
         NPContainerQ container;
-        NearestPhotons(const glm::vec3& pos, size_t capacity);
+        NearestPhotons(const glm::vec3& pos, const glm::vec3& normal, size_t capacity);
     };
     class Filter abstract {
     public:
@@ -96,19 +97,23 @@ class PhotonMap {
 public:
     enum Type { def = 0, caustic = 1};
 private:
+    struct Settings {
+        size_t np_size = 2000;
+        // Cone filter coef k
+        const float cf_k = 1.1f; // Must be >= 1
+        // Gaussian filter coef alpha
+        const float gf_alpha = 1.818f;
+        // Gaussian filter coef beta
+        const float gf_beta = 1.953f;
+        float disc_compression = 1.6f;
+    };
+    Type type;
     // glm::vec3** heap; Тотальный проигрыш куче, т.к. непонятен размер.
     float max_distance = 1000; // TODO перенести в cpp пока что
     Node* root;
     size_t size;
-    // Cone filter coef k
-    const float cf_k = 1.1f; // Must be >= 1
-    // Gaussian filter coef alpha
-    const float gf_alpha = 1.818f;
-    // Gaussian filter coef beta
-    const float gf_beta = 1.953f;
     std::vector<Filter*> filters;
-    Type type;
-    size_t np_size = 2000;
+    Settings settings;
     /// <summary>
     /// Возвращает измерение по которому "куб" имеет наибольшую длину
     /// </summary>
@@ -121,7 +126,7 @@ private:
 public:
     std::vector<Photon> locate(const Node* elem, size_t capacity) const;
     std::vector<Photon> locate(const glm::vec3& value, size_t capacity) const;
-    std::vector<Photon> locate_r(const glm::vec3& value, size_t capacity) const;
+    bool locate_r(NearestPhotons* np) const;
     bool radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& iloc, 
         const glm::vec3& norm, glm::vec3& out_rad);
     void fill_balanced(const std::vector<Photon>& points);
@@ -131,5 +136,6 @@ public:
     void clear();
     void total_locate_time();
     void update_np_size(size_t size);
+    void update_disc_compression(float coef);
 };
 

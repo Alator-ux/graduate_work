@@ -283,7 +283,7 @@ std::vector<ModelConstructInfo> loadOBJ(const std::string& path, const std::stri
                         ss.ignore(1, '/');
                     }
                 }
-                else if (ss.peek() == ' ')
+                else if (ss.peek() == ' ' || ss.eof())
                 {
 
                     ps++; // Если модель содержит описание вида f v v 

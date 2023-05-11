@@ -6,6 +6,8 @@
 #include "Tools.h"
 #include "ObjLoader.h"
 #include <unordered_map>
+#include "Light.h"
+#include "Light.h"
 struct Ray {
     glm::vec3 origin;
     glm::vec3 dir;
@@ -32,18 +34,23 @@ class PMModel {
     glm::vec3 barycentric_coords(const glm::vec3& point, const glm::vec3& tr_ind);
     bool traingle_intersection(const Ray& ray, bool in_object, const glm::vec3& p0,
         const glm::vec3& p1, const glm::vec3& p2, float& out) const;
+    LightSource* ls;
 public:
     std::string name;
     PMModel() {}
     PMModel(const PMModel& other);
-    PMModel(const ModelConstructInfo& mci);
+    PMModel(const ModelConstructInfo& mci, LightSource* ls= nullptr);
     bool intersection(const Ray& ray, bool in_object, float& intersection, glm::vec3& inter_ind) const;
     bool equal(const PMModel& other) const;
     bool equal(size_t other_id) const;
+    void set_light_intensity(const glm::vec3& value);
     const Material* get_material() const;
     size_t get_id() const;
     glm::vec3* get_wn() const;
+    glm::vec3 get_normal(size_t i) const;
     void get_normal(const glm::vec3& inter_ind, const glm::vec3& point, glm::vec3& normal);
+    const LightSource* get_ls() const;
+    std::pair<glm::vec3, glm::vec3> get_radiation_info() const;
 };
 struct PMScene {
     std::vector<PMModel> objects;
