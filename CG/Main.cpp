@@ -7,7 +7,6 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_glfw.h>
 #include "MainWindow.h"
-#include "Drawer.h"
 #include "Camera.h"
 #include "Texture.h"
 #include "ObjModel.h"
@@ -19,9 +18,9 @@ const GLuint W_WIDTH = 600;
 const GLuint W_HEIGHT = 600;
 std::vector<Shader> shaders;
 Shader lampShader;
-Drawer drawer;
+PMDrawer drawer(300, 300);
+PMSettingsUpdater pmsu;
 Camera camera;
-CImgTexture* canvas;
 PhotonMapping pm;
 void Init(OpenGLManager*);
 void Draw(int, float, float, double);
@@ -55,11 +54,10 @@ int main() {
 
     ImGui::StyleColorsDark();
 
-    std::unique_ptr<Window> main_window(new MainWindow(&pm));
+    std::unique_ptr<Window> main_window(new MainWindow(&pmsu, &pm, &drawer));
    
     bool show_demo_window = false;
     std::string vbo_name = "";
-    cimg_library::CImgDisplay main_disp(canvas->image, "Canvas");
     while (!glfwWindowShouldClose(window))
     {   
         glfwPollEvents();
@@ -71,7 +69,7 @@ int main() {
         ImGui::ShowDemoWindow();
 
         main_window.get()->draw();
-        main_disp.display(canvas->image);
+        drawer.display();
 
         // Rendering
         ImGui::Render();
@@ -138,7 +136,6 @@ void Do_Movement() {
 }
 void Release() {
     OpenGLManager::get_instance()->release();
-    delete canvas;
 }
 
 void print_vec3(const glm::vec3& elem) {
@@ -156,17 +153,18 @@ void print_vec(const std::vector<glm::vec3>& c) {
 size_t pmpointcount;
 void Init(OpenGLManager* manager) {
     Random<unsigned>::set_seed();
-    drawer = Drawer(W_WIDTH, W_HEIGHT);
     
     Shader shader = Shader();
     shader.init_shader("main.vert", "main.frag");
     shaders.push_back(shader);
-    canvas = new CImgTexture(300, 300);
 
     //auto map = loadOBJ("./models/cornell_box_original", "CornellBox-Original.obj");
-    //auto map = loadOBJ("./models/cornell_box_sphere", "CornellBox-Sphere.obj");
-    auto map = loadOBJ("./models/cornell_box_water", "CornellBox-Water.obj");
+    auto map = loadOBJ("./models/cornell_box_sphere", "CornellBox-Sphere.obj");
+    //auto map = loadOBJ("./models/cornell_box_water", "CornellBox-Water.obj");
     //auto map = loadOBJ("./models/cornell_box_high_water", "cornellbox-water2.obj");
+    //auto map = loadOBJ("./models/ring", "ring.obj");
+    //auto map = loadOBJ("./models/wine_glass", "WineGlasses.obj");
+    //auto map = loadOBJ("./models/raw_ring", "simple_ring.obj");
     glm::vec3 lspos(0.f);
     std::vector<PMModel> scene;
     for (auto& kv : map) {
@@ -181,7 +179,7 @@ void Init(OpenGLManager* manager) {
     }
 
     std::vector<LightSource> lssources({ PointLight(lspos) });
-    pm.init(canvas, scene, lssources);
+    pm.init(&drawer, scene, lssources, pmsu);
     //pm.build_map();
 
    /* auto pm = PhotonMapping(scene, lssources, 1000);

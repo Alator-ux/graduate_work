@@ -151,6 +151,7 @@
     <ClCompile Include="OpenGLWrappers.cpp" />
     <ClCompile Include="PhotonMap.cpp" />
     <ClCompile Include="PhotonMapping.cpp" />
+    <ClCompile Include="PMDrawer.cpp" />
     <ClCompile Include="PMModel.cpp" />
     <ClCompile Include="PMTools.cpp" />
     <ClCompile Include="Tools.cpp" />
@@ -172,7 +173,9 @@
     <ClInclude Include="Photon.h" />
     <ClInclude Include="PhotonMap.h" />
     <ClInclude Include="PhotonMapping.h" />
+    <ClInclude Include="PMDrawer.h" />
     <ClInclude Include="PMModel.h" />
+    <ClInclude Include="PMSettingsUpdater.h" />
     <ClInclude Include="PMTools.h" />
     <ClInclude Include="PrimitiveChanger.h" />
     <ClInclude Include="Primitives.h" />

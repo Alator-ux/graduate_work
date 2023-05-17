@@ -9,6 +9,7 @@
 #include <algorithm>
 #include "Photon.h"
 #include "queue"
+#include "PMSettingsUpdater.h"
 class PhotonMap {
     struct Node {
         Photon value;
@@ -58,7 +59,7 @@ class PhotonMap {
         NPContainerQ container;
         NearestPhotons(const glm::vec3& pos, const glm::vec3& normal, size_t capacity);
     };
-    class Filter abstract {
+    class Filter {
     public:
         /// <summary>
         /// Normalization coefficient
@@ -66,7 +67,7 @@ class PhotonMap {
         /// <returns></returns>
         const float norm_coef;
         Filter(float norm_coef);
-        virtual float call(const glm::vec3& ppos, const glm::vec3& loc, float r) abstract;
+        float call(const glm::vec3& ppos, const glm::vec3& loc, float r);
     };
     class ConeFilter : public Filter {
         float k;
@@ -79,7 +80,7 @@ class PhotonMap {
         /// <param name="loc">Location where ray hitting a surface</param>
         /// <param name="r">Max distance between loc and nearests photons</param>
         /// <returns></returns>
-        float call(const glm::vec3& ppos, const glm::vec3& loc, float r) override;
+        float call(const glm::vec3& ppos, const glm::vec3& loc, float r);
     };
     class GaussianFilter : public Filter {
         float alpha, beta;
@@ -92,28 +93,18 @@ class PhotonMap {
         /// <param name="loc">Location where ray hitting a surface</param>
         /// <param name="r">Squared max distance between loc and nearests photons</param>
         /// <returns></returns>
-        float call(const glm::vec3& ppos, const glm::vec3& loc, float r) override;
+        float call(const glm::vec3& ppos, const glm::vec3& loc, float r);
     };
 public:
-    enum Type { def = 0, caustic = 1};
+    enum Type { def = 0, caustic };
 private:
-    struct Settings {
-        size_t np_size = 2000;
-        // Cone filter coef k
-        const float cf_k = 1.1f; // Must be >= 1
-        // Gaussian filter coef alpha
-        const float gf_alpha = 1.818f;
-        // Gaussian filter coef beta
-        const float gf_beta = 1.953f;
-        float disc_compression = 1.6f;
-    };
     Type type;
     // glm::vec3** heap; Тотальный проигрыш куче, т.к. непонятен размер.
     float max_distance = 1000; // TODO перенести в cpp пока что
     Node* root;
     size_t size;
     std::vector<Filter*> filters;
-    Settings settings;
+    PhotonMapSettings settings;
     /// <summary>
     /// Возвращает измерение по которому "куб" имеет наибольшую длину
     /// </summary>
@@ -135,7 +126,6 @@ public:
     ~PhotonMap();
     void clear();
     void total_locate_time();
-    void update_np_size(size_t size);
-    void update_disc_compression(float coef);
+    void set_settings_updater(PMSettingsUpdater& pmsu);
 };
 

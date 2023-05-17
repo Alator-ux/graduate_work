@@ -1,8 +1,9 @@
 #pragma once
 #include "Photon.h"
 #include "Tools.h"
-#include "PMModel.h"
 #include <iostream>
+#include "PMModel.h"
+#include "GLM/glm.hpp"
 /* Photon Book page 85
 Is this simple visualization a full solution to the rendering equation? To
 answer this question we can look at the paths traced by the photons and
@@ -51,7 +52,7 @@ public:
     /// </summary>
     bool response() const {
         if ((lastPathType == PathType::spec_refl || lastPathType == PathType::refr)
-            && diffuse_surfs < 2) {
+            && diffuse_surfs < 1) {
             return true;
         } 
         if (lastPathType == PathType::dif_refl) {
@@ -103,9 +104,18 @@ struct PhotonCollector {
     }
 };
 class MediumManager {
-    DeepLookStack<std::pair<float, size_t>> mediums;
+    struct StackContent {
+        DeepLookStack<std::pair<float, size_t>> mediums;
+        bool exiting;
+        StackContent() {}
+        StackContent(const DeepLookStack<std::pair<float, size_t>>& mediums, bool exiting) {
+            this->mediums = mediums;
+            this->exiting = exiting;
+        }
+    };
+    //DeepLookStack<std::pair<float, size_t>> mediums;
+    std::stack<StackContent> st_mediums;
     float default_refr;
-    bool exiting;
     /// <summary>
     /// ca_table — critical angle table.
     /// Map with critical angles for each medium pair in the scene.
@@ -113,9 +123,10 @@ class MediumManager {
     /// <param name="Value"> is a critical angle for this mediums in radians</param>
     /// </summary>
     std::map<std::pair<float,float>, float> ca_table;
-
 public:
-    MediumManager(float def_refr = 1.f) : mediums(), exiting(false), default_refr(def_refr) {}
+    MediumManager(float def_refr = 1.f) : default_refr(def_refr) {
+        clear();
+    }
     void compute_critical_angles(const PMScene& scene)
     {
         float eta1, eta2, eta, ca;
@@ -158,6 +169,8 @@ public:
     }
     std::pair<float, float> get_cur_new(const PMModel* model) {
         std::pair<float, float> res;
+        auto& mediums = st_mediums.top().mediums;
+        auto& exiting = st_mediums.top().exiting;
         if (model->equal(mediums.peek().second)) {
             // Если луч столкнулся с объектом, в котором он находится, с внутренней стороны
             // Надо достать внешнюю по отношению к объекту среду. На вершине стека лежит объект, 
@@ -175,18 +188,28 @@ public:
         return res;
     }
     void inform(bool refract_suc, const PMModel* model) {
-        if (refract_suc) {
-            if (exiting) { // если луч вышел из объекта, то убираем со стека текущую среду
-                mediums.pop();
-                exiting = false;
-            }
-            else { // иначе луч пересек еще один объект, добавляем текущую среду
-                mediums.push({ model->get_material()->refr_index, model->get_id() });
-            }
+        if (!refract_suc) {
+            return;
+        }
+        st_mediums.push(st_mediums.top());
+        auto& mediums = st_mediums.top().mediums;
+        auto& exiting = st_mediums.top().exiting;
+        if (exiting && model->equal(mediums.peek().second)) {
+            // если луч вышел из объекта, то убираем со стека текущую среду
+            mediums.pop();
+            exiting = false;
+        }
+        else { // иначе луч пересек еще один объект, добавляем текущую среду
+            mediums.push({ model->get_material()->refr_index, model->get_id() });
         }
     }
+    void reduce_depth() {
+        st_mediums.pop();
+    }
     void clear() {
-        mediums = DeepLookStack<std::pair<float, size_t>>();
-        mediums.push({ default_refr, 0 });
+        auto default_m = DeepLookStack<std::pair<float, size_t>>();
+        default_m.push({ default_refr, 0 });
+        st_mediums = std::stack<StackContent>();
+        st_mediums.push(StackContent(default_m, false));
     }
 };

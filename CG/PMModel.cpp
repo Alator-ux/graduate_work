@@ -40,11 +40,17 @@ Ray Ray::reflect_spherical(const glm::vec3& from, const glm::vec3& normal) const
         new_dir.y = 2.f * x2 * fx1x2;
         new_dir.z = 1.f - 2.f * (sqrx1 + sqrx2);
     } while (glm::dot(new_dir, normal) < 0);
-    return Ray(from, new_dir);
+    Ray res;
+    res.dir = glm::normalize(new_dir);
+    res.origin = from;// +0.00001f * new_dir;
+    return res;
 }
 Ray Ray::reflect(const glm::vec3& from, const glm::vec3& normal) const {
-    glm::vec3 refl_dir = dir - 2.f * normal * glm::dot(dir, normal); 
-    return { from, glm::normalize(from + refl_dir) };
+    glm::vec3 refl_dir = dir - 2.f * normal * glm::dot(dir, normal);
+    Ray res;
+    res.dir = glm::normalize(refl_dir);
+    res.origin = from;// +0.00001f * refl_dir;
+    return res;
 }
 bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, float refr2, Ray& out) const {
     /*float eta = refr1 / refr2; // relative index of refraction
@@ -93,7 +99,7 @@ bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, f
         return false;
     }
     out.dir = eta * dir + (w - sqrt(1.f + c2m)) * normal;
-    out.origin = from;
+    out.origin = from;// +0.000001f * out.dir;
     return true;
 }
 // ========== Ray section end ==========
@@ -114,12 +120,17 @@ PMModel::PMModel(const ModelConstructInfo& mci,
     this->bcache = std::unordered_map<glm::vec3, BarycentricCache, Vec3Hash>();
     id_gen++;
 }
-glm::vec3 PMModel::barycentric_coords(const glm::vec3& p, const glm::vec3& tr_ind) {
-    glm::vec3 v0, v1, v2;
+float triarea(float a, float b, float c)
+{
+    float s = (a + b + c) / 2.0;
+    return sqrt(s * (s - a) * (s - b) * (s - c));
+}
+glm::vec3 PMModel::barycentric_coords(const glm::vec3& p, size_t ii0, size_t ii1, size_t ii2) {
+    /*glm::vec3 v0, v1, v2;
     float d00, d01, d11, denom;
     v2 = p - mci.vertices[tr_ind.x].position;
     auto fres = bcache.find(tr_ind);
-    if (fres != bcache.end()) {
+    if (false && fres != bcache.end()) {
         v0 = fres->second.v0;
         v1 = fres->second.v1;
         d00 = fres->second.d00;
@@ -141,7 +152,27 @@ glm::vec3 PMModel::barycentric_coords(const glm::vec3& p, const glm::vec3& tr_in
     glm::vec3 res;
     res.y = (d11 * d20 - d01 * d21) / denom; // v
     res.z = (d00 * d21 - d01 * d20) / denom; // w
-    res.x = 1.0f - res.y - res.z; // u
+    res.x = 1.0f - res.y - res.z; // u*/
+    auto p0 = mci.vertices[ii0].position;
+    auto p1 = mci.vertices[ii1].position;
+    auto p2 = mci.vertices[ii2].position;
+
+    float a = glm::distance(p0, p1);
+    float b = glm::distance(p1, p2);
+    float c = glm::distance(p2, p0);
+
+    float totalarea = triarea(a, b, c);
+
+    // compute the distances from the outer vertices to the inner vertex
+    float length0 = glm::distance(p0, p);
+    float length1 = glm::distance(p1, p);
+    float length2 = glm::distance(p2, p);
+    glm::vec3 res;
+    // divide the area of each small triangle by the area of the big triangle
+    res.x = triarea(b, length1, length2) / totalarea;
+    res.y= triarea(c, length0, length2) / totalarea;
+    res.z = triarea(a, length0, length1) / totalarea;
+
     return res;
 }
 bool PMModel::traingle_intersection(const Ray& ray, bool in_object, const glm::vec3& p0,
@@ -177,66 +208,73 @@ bool PMModel::traingle_intersection(const Ray& ray, bool in_object, const glm::v
     //Это означает, что есть пересечение линий, но не пересечение лучей.
     return false;
 }
-bool PMModel::intersection(const Ray& ray, bool in_object, float& intersection, glm::vec3& inter_ind) const {
+bool PMModel::intersection(const Ray& ray, bool in_object, float& intersection, 
+    size_t& ip0, size_t& ip1, size_t& ip2) const {
     intersection = 0.f;
-    inter_ind.x = inter_ind.y = inter_ind.z = 0;
-    if (mci.render_mode == GL_TRIANGLES) {
-        for (size_t i = 0; i < mci.vertices.size(); i += 3) {
-            float temp = 0.f;
-            bool succ = traingle_intersection(ray, in_object, mci.vertices[i].position,
+    ip0 = ip1 = ip2 = 0;
+    size_t l = 0;
+    size_t i = 0;
+    float temp;
+    bool succ;
+    while (l < mci.lengths.size()) {
+        temp = 0.f;
+        if (mci.lengths[l] == 3) {
+            succ = traingle_intersection(ray, in_object, mci.vertices[i].position,
                 mci.vertices[i + 1].position, mci.vertices[i + 2].position, temp);
             if (succ && (intersection == 0 || temp < intersection)) {
                 intersection = temp;
-                inter_ind.x = i;
-                inter_ind.y = i + 1;
-                inter_ind.z = i + 2;
+                ip0 = i;
+                ip1 = i + 1;
+                ip2 = i + 2;
             }
+            i += 3;
         }
-    }
-    else if (mci.render_mode == GL_QUADS) {
-        for (size_t i = 0; i < mci.vertices.size(); i += 4) {
-            float temp = 0.f;
-            bool succ = traingle_intersection(ray, in_object, mci.vertices[i].position,
+        else if (mci.lengths[l] == 4) {
+            succ = traingle_intersection(ray, in_object, mci.vertices[i].position,
                 mci.vertices[i + 1].position, mci.vertices[i + 3].position, temp);
             if (succ && (intersection == 0 || temp < intersection)) {
                 intersection = temp;
-                inter_ind.x = i;
-                inter_ind.y = i + 1;
-                inter_ind.z = i + 3;
-                continue;
+                ip0 = i;
+                ip1 = i + 1;
+                ip2 = i + 3;
             }
-
-            temp = 0.f;
-            succ = traingle_intersection(ray, in_object, mci.vertices[i + 1].position,
-                mci.vertices[i + 2].position, mci.vertices[i + 3].position, temp);
-            if (succ && (intersection == 0 || temp < intersection)) {
-                intersection = temp;
-                inter_ind.x = i + 1;
-                inter_ind.y = i + 2;
-                inter_ind.z = i + 3;
+            else {
+                temp = 0.f;
+                succ = traingle_intersection(ray, in_object, mci.vertices[i + 1].position,
+                    mci.vertices[i + 2].position, mci.vertices[i + 3].position, temp);
+                if (succ && (intersection == 0 || temp < intersection)) {
+                    intersection = temp;
+                    ip0 = i + 1;
+                    ip1 = i + 2;
+                    ip2 = i + 3;
+                }
             }
+            i += 4;
         }
+        else {
+            throw std::exception("Not implemented");
+        }
+        l++;
     }
-    else {
-        throw std::exception("Not implemented");
-    }
-    if (intersection == 0.f) {
-        return false;
-    }
-    
-    return true;
+    return intersection != 0.f;
 }
 glm::vec3 PMModel::get_normal(size_t i) const {
     return mci.vertices[i].normal;
 }
-void PMModel::get_normal(const glm::vec3& inter_ind, const glm::vec3& point, glm::vec3& normal) {
+void PMModel::get_normal(size_t ii0, size_t ii1, size_t ii2, const glm::vec3& point, glm::vec3& normal) {
     if (mci.smooth) {
-        auto uvw = barycentric_coords(point, inter_ind);
-        normal = glm::normalize(mci.vertices[inter_ind.x].normal * uvw.x +
-            mci.vertices[inter_ind.y].normal * uvw.y + mci.vertices[inter_ind.z].normal * uvw.z);
+        auto uvw = barycentric_coords(point, ii0, ii1, ii2);
+        //normal = glm::normalize(mci.vertices[inter_ind.x].normal * uvw.x +
+        //    mci.vertices[inter_ind.y].normal * uvw.y + mci.vertices[inter_ind.z].normal * uvw.z);
+        auto& n0 = mci.vertices[ii0].normal;
+        auto& n1 = mci.vertices[ii1].normal;
+        auto& n2 = mci.vertices[ii2].normal;
+        normal.x = n0.x * uvw.x + n1.x * uvw.y + n2.x * uvw.z;
+        normal.y = n0.y * uvw.x + n1.y * uvw.y + n2.y * uvw.z;
+        normal.z = n0.z * uvw.x + n1.z * uvw.y + n2.z * uvw.z;
         return;
     }
-    normal = mci.vertices[inter_ind.x].normal;
+    normal = mci.vertices[ii0].normal;
 }
 const Material* PMModel::get_material() const {
     return &mci.material;
@@ -299,8 +337,8 @@ std::pair<glm::vec3, glm::vec3> PMModel::get_radiation_info() const {
         }
     }
     glm::vec3 uvw;
-    uvw.x = Random<float>::random(0.f, 1.f - eps);
-    uvw.y = Random<float>::random(0.f, 1.f - eps);
+    uvw.x = Random<float>::random(0.f, 1.f);
+    uvw.y = Random<float>::random(uvw.x, 1.f);
     uvw.z = 1.f - uvw.x - uvw.y;
     
     res.first = uvw.x * mci.vertices[inds.x].position + uvw.y * mci.vertices[inds.y].position +
@@ -310,12 +348,67 @@ std::pair<glm::vec3, glm::vec3> PMModel::get_radiation_info() const {
     return res;
 }
 
+PMCamera::PMCamera(glm::vec3 position, glm::vec3 up, glm::vec3 front, 
+    float yaw, float pitch) {
+    this->position = position;
+    this->world_up = up;
+    this->yaw = yaw;
+    this->pitch = pitch;
+    constexpr float fov_ = glm::radians(60.f);
+    this->scale = glm::tan(fov_ / 2.0f);
+    updateCameraVectors();
+}
+void PMCamera::updateCameraVectors()
+{
+    glm::vec3 front;
+    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front.y = sin(glm::radians(pitch));
+    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front = glm::normalize(front);
+
+    right = glm::normalize(glm::cross(front, world_up));
+    up = glm::normalize(glm::cross(right, front));
+}
+void PMCamera::set_hw(float height, float width) {
+    this->height = height;
+    this->width = width;
+    this->aspect = height / width;
+}
+void PMCamera::set_position(const glm::vec3& pos) {
+    position = pos;
+}
+glm::vec3 PMCamera::get_position() {
+    return position;
+}
+glm::vec3 PMCamera::get_normal() {
+    return front;
+}
+void PMCamera::look_to(const glm::vec3& dir) {
+    front = glm::normalize(dir);
+    updateCameraVectors();
+}
+void PMCamera::look_at(const glm::vec3& pos) {
+    front = glm::normalize(pos - this->position);
+    updateCameraVectors();
+}
+glm::vec3 PMCamera::get_ray(float i, float j) {
+    glm::mat4 camera_to_world_ = glm::inverse(glm::lookAtRH(position, position + front, up));
+    glm::vec3 ray_direction = front;
+    glm::vec2 pixel_ndc((i + 0.5f) / width, (j + 0.5f) / height);
+    ray_direction.x = (2.0f * pixel_ndc.x - 1.0f) * scale;
+    ray_direction.y = (1.0f - 2.0f * pixel_ndc.y) * scale * aspect;
+    ray_direction = camera_to_world_ * glm::vec4(ray_direction, 0.0f);
+
+    return glm::normalize(ray_direction);
+}
+
 PMScene::PMScene() {
     std::vector<PMModel> objects;
-    glm::vec3 left_lower, right_upper, camera, normal;
+    glm::vec3 left_lower, right_upper;
 }
 PMScene::PMScene(const std::vector<PMModel>& objects)
 {
+    this->camera = PMCamera();
     this->objects = std::vector<PMModel>(objects.size());
     for (size_t i = 0; i < objects.size(); i++) {
         this->objects[i] = objects[i];
@@ -329,7 +422,7 @@ PMScene::PMScene(const std::vector<PMModel>& objects)
             normal.z = -wn[2].z;
         }
     }
-    this->camera = (left_lower + right_upper) / 2.f;
+    this->camera.set_position((left_lower + right_upper) * 0.5f);
     //this->camera = glm::vec3(0.f, 1.f, 1.f);
     //this->normal = glm::vec3(0.f, 0.f, - 1.f);
 }

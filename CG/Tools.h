@@ -127,3 +127,35 @@ public:
         top--;
     }
 };
+template <typename T>
+class Matrix
+{
+    std::vector<T> inner_;
+    unsigned int dimx_, dimy_;
+
+public:
+    Matrix() : dimx_(0), dimy_(0) {}
+    Matrix(unsigned int dimx, unsigned int dimy, const T& def_value)
+        : dimx_(dimx), dimy_(dimy)
+    {
+        inner_ = std::vector<T>(dimx_ * dimy_);
+        fill(def_value);
+    }
+    T& operator()(unsigned int x, unsigned int y)
+    {
+        if (x >= dimx_ || y >= dimy_)
+            throw std::out_of_range("matrix indices out of range"); // ouch
+        return inner_[dimx_ * y + x];
+    }
+    void fill(const T& value) {
+        std::generate(inner_.begin(), inner_.end(), [&value]() { return value; });
+    }
+    void clear() {
+        inner_ = std::vector<T>(dimx_ * dimy_);
+    }
+};
+
+template<typename T>
+T convert(const void* pointer) {
+    return *((const T*)pointer);
+}

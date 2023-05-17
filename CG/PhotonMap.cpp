@@ -105,6 +105,9 @@ PhotonMap::NearestPhotons::NearestPhotons(const glm::vec3& pos, const glm::vec3&
 /* ==========! PhotonMapp subclass !========== */
 /* ========== Filter abstract class begin ========== */
 PhotonMap::Filter::Filter(float norm_coef) : norm_coef(norm_coef) {}
+float PhotonMap::Filter::call(const glm::vec3& ppos, const glm::vec3& loc, float r) {
+    return 1.f;
+}
 /* ========== Filter abstract class end ========== */
 
 /* ==========! PhotonMapp subclass !========== */
@@ -293,23 +296,24 @@ bool PhotonMap::radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& ilo
     out_rad.x = out_rad.y = out_rad.z = 0;
     float r, filter_r;
     filter_r = r = glm::distance(iloc, (np.container[0].pos));
-    if (type == Type::caustic) {
+    if (settings.ftype == PhotonMapSettings::FilterType::gaussian) {
         filter_r *= filter_r;
     }
     for (size_t i = 0; i < np.container.size(); i++) {
         auto& p = np.container[i];
         float cosNL = glm::dot(-p.inc_dir, norm);
         if (cosNL > 0.f) {
-            out_rad += p.power * cosNL * (this->filters[type])->call(p.pos, iloc, filter_r);
+            out_rad += p.power * cosNL * (this->filters[settings.ftype])->call(p.pos, iloc, filter_r);
         }
     }
 
-    //float temp = (1.f / (M_PI * r * r * this->filters[type]->norm_coef));
-    float temp = (1.f / (M_PI * (r * r) * this->filters[type]->norm_coef));
+    //float temp = (1.f / (M_PI * r * r * this->filters[settings.ftype]->norm_coef));
+    float temp = (1.f / (M_PI * (r * r) * this->filters[settings.ftype]->norm_coef));
     out_rad *= temp;
     return true;
 }
 PhotonMap::PhotonMap(Type type) {
+    this->settings.ftype = PhotonMapSettings::FilterType::none;
     this->type = type;
     this->size = 0;
     this->root = nullptr;
@@ -317,9 +321,10 @@ PhotonMap::PhotonMap(Type type) {
 void PhotonMap::fill_balanced(const std::vector<Photon>& photons) {
     size = photons.size();
     
-    filters = std::vector<Filter*>(2);
-    filters[0] = new ConeFilter(settings.cf_k);
-    filters[1] = new GaussianFilter(settings.gf_alpha, settings.gf_beta);
+    filters = std::vector<Filter*>(3);
+    filters[PhotonMapSettings::FilterType::none] = new Filter(1.f);
+    filters[PhotonMapSettings::FilterType::cone] = new ConeFilter(settings.cf_k);
+    filters[PhotonMapSettings::FilterType::gaussian] = new GaussianFilter(settings.gf_alpha, settings.gf_beta);
     //heap = new glm::vec3*[size];
 
     if (photons.size() == 0) {
@@ -328,6 +333,7 @@ void PhotonMap::fill_balanced(const std::vector<Photon>& photons) {
         return;
     }
     std::cout << "Filling balanced KD-tree (photon map) started" << std::endl;
+    
     /*
     * нахождение "куба", захватывающего все точки и заполнение вектор указателей для работы с ними
     * + перевод вектор точек в вектор указателей на точки для дальнейшего удобства
@@ -407,10 +413,12 @@ void PhotonMap::clear() {
         delete filter;
     }
 }
-void PhotonMap::update_np_size(size_t size) {
-    this->settings.np_size = size;
-}
-void PhotonMap::update_disc_compression(float coef) {
-    this->settings.disc_compression = coef;
+void PhotonMap::set_settings_updater(PMSettingsUpdater& pmsu) {
+    if (type == def) {
+        pmsu.link_gmap(&settings);
+    }
+    else {
+        pmsu.link_cmap(&settings);
+    }
 }
 /* ========== PhotonMapp class end ========== */

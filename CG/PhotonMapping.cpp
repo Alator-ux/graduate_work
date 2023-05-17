@@ -2,12 +2,17 @@
 /* ========== PhotonMapping class begin ========== */
 PhotonMapping::PhotonMapping() :
     global_map(PhotonMap::Type::def), caustic_map(PhotonMap::Type::caustic) {}
-void PhotonMapping::init(CImgTexture* canvas, const std::vector<PMModel>& objects,
-    const std::vector<LightSource>& lsources) {
+void PhotonMapping::init(PMDrawer* drawer, const std::vector<PMModel>& objects,
+    const std::vector<LightSource>& lsources, PMSettingsUpdater& pmsu) {
     this->scene = std::move(PMScene(objects));
     this->lsources = lsources;
-    this->canvas = canvas;
+    this->drawer = drawer;
     this->medium_manager.compute_critical_angles(this->scene);
+    this->global_map.set_settings_updater(pmsu);
+    this->caustic_map.set_settings_updater(pmsu);
+    this->drawer->set_settings_updater(pmsu);
+    pmsu.link_pc(&photon_collector);
+    pmsu.link_main(&settings);
 }
 void PhotonMapping::emit(const PMModel& ls) {
     size_t ne = 0;// Number of emitted photons
@@ -17,15 +22,25 @@ void PhotonMapping::emit(const PMModel& ls) {
         medium_manager.clear();
         path_operator.clear();
         auto p = ls.get_radiation_info();
+        p.first = ls.get_ls()->position;
         ray.origin = p.first + p.second * 0.0001f;
+
+        /*scene.camera = glm::vec3(-0.38551, -0.5847, 0.68857);
+        scene.normal = -glm::normalize(scene.camera);
+        //scene.camera = scene.camera - 0.5f * scene.normal;
+        ray.origin = scene.camera;
+        p.second = scene.normal;*/
+
         float prob;
+        float dot;
         do{
             ray.dir.x = Random<float>::random(-1.f, 1.f);
             ray.dir.y = Random<float>::random(-1.f, 1.f);
             ray.dir.z = Random<float>::random(-1.f, 1.f);
             ray.dir = glm::normalize(ray.dir);
             prob = Random<float>::random(0.f, 1.f);
-        } while (prob > glm::dot(ray.dir, p.second));
+            dot = glm::dot(ray.dir, p.second);
+        } while (prob > dot);
         auto pp = ls.get_ls()->intensity / (float)photon_collector.gsize; // photon power
         trace(ray, false, pp);
         ne++;
@@ -102,14 +117,17 @@ bool PhotonMapping::find_intersection(const Ray& ray, bool reverse_normal,
     PMModel*& imodel, glm::vec3& normal, glm::vec3& inter_p) {
     float inter = 0.f;
     imodel = nullptr;
-    glm::vec3 inter_ind;
+    size_t ii0, ii1, ii2;
     for (PMModel& model : scene.objects) {
         float temp_inter;
-        glm::vec3 temp_ind;
-        bool succ = model.intersection(ray, false, temp_inter, temp_ind); // TODO in_object скорее всего дропнуть
+        size_t tii0, tii1, tii2;
+        bool succ = model.intersection(ray, false, temp_inter, 
+            tii0, tii1, tii2); // TODO in_object скорее всего дропнуть
         if (succ && (inter == 0.f || temp_inter < inter)) {
             inter = temp_inter;
-            inter_ind = temp_ind;
+            ii0 = tii0;
+            ii1 = tii1;
+            ii2 = tii2;
             imodel = &model;
         }
     }
@@ -117,8 +135,9 @@ bool PhotonMapping::find_intersection(const Ray& ray, bool reverse_normal,
         return false;
     }
     inter_p = ray.origin + ray.dir * inter;
-    imodel->get_normal(inter_ind, inter_p, normal);
-    if (glm::dot(ray.dir, normal) > 0) { // reverse_normal &&
+    imodel->get_normal(ii0, ii1, ii2, inter_p, normal);
+    //normal = imodel->get_normal(ii2);
+    if (reverse_normal && glm::dot(ray.dir, normal) > 0) { // reverse_normal &&
         normal *= -1.f;
     }
     return true;
@@ -168,10 +187,6 @@ float PhotonMapping::FresnelSchlick(float cosNL, float n1, float n2) {
     float f0 = std::pow((n1 - n2) / (n1 + n2), 2);
     return f0 + (1.f - f0) * pow(1.f - cosNL, 5.f);
 }
-void PhotonMapping::hdr(glm::vec3& dest) {
-    dest = glm::vec3(1.f) - glm::exp(-dest * settings.exposure);
-    dest = glm::pow(dest, glm::vec3(1.f / settings.gamma));
-}
 void PhotonMapping::build_map() {
     std::cout << "Photon emission started" << std::endl;
     size_t count = 0;
@@ -192,7 +207,7 @@ void PhotonMapping::build_map() {
     photon_collector.clear();
     return ;
 }
-glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth) {
+glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth, int i, int j) {
     glm::vec3 res(0.f);
     if (depth > settings.max_rt_depth) {
         return res;
@@ -202,12 +217,21 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth)
     if (!find_intersection(ray, in_object, imodel, normal, inter_p)) {
         return res;
     }
-    if (depth == 0 && imodel->name != "rightSphere") {
-     //   return res;
+    if (depth == 0 && imodel->name != "leftSphere") {
+       return res;
+    }
+    if (depth >= 1 && imodel->name == "leftSphere") {
+        return res;
     }
     const Material* mat = imodel->get_material();
+    if (depth == 0 && !in_object) {
+        auto a = 0;
+    }
+    // std::cout << "SCuucccc" << std::endl;
 
-    if (false && mat->diffuse != glm::vec3(0.f)) {
+    //drawer->set_rgb(i, j, mat->diffuse, PMDrawer::em, depth);
+    //return mat->emission;
+    if (mat->diffuse != glm::vec3(0.f)) {
         glm::vec3 re(0.f);
         int lcount = 0;
         glm::vec3 tnormal, tinter_p;
@@ -218,72 +242,105 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth)
             tray.dir = glm::normalize(inter_p - ls.position); // point <- ls
             if (find_intersection(tray, in_object, timodel, tnormal, tinter_p) && vec3_equal(inter_p, tinter_p)) {
                 lcount++;
-                re += glm::max(glm::dot(normal, -tray.dir), 0.f);
+                //auto ls_normal = timodel->get_normal(0);  *glm::dot(ls_normal, tray.dir)
+                if (depth >= 1) {
+                    re += glm::max(glm::dot(normal, -tray.dir), 0.f);
+                }
             }
         }
         re /= lcount == 0 ? 1 : lcount;
+        auto di_op = mat->diffuse* mat->opaque;
+        drawer->set_rgb(i, j, re * di_op, PMDrawer::di, depth);
         if (settings.dpmdi) {
             if (lcount == 0) {
                 global_map.radiance_estimate(ray.dir, inter_p, normal, re);
+                re *= settings.gl_mult;
+                drawer->set_rgb(i, j, re * di_op, PMDrawer::gi, depth);
             }
         }
         else {
-            res += re;
+            res += re * di_op;
             global_map.radiance_estimate(ray.dir, inter_p, normal, re);
+            re *= settings.gl_mult;
+            drawer->set_rgb(i, j, re * di_op, PMDrawer::gi, depth);
         }
-        res += re;
-        res *= mat->diffuse;
+        res += re * di_op;
     }
-    if (false && !in_object && mat->specular != glm::vec3(0.f)) {
+    if (!in_object && mat->specular != glm::vec3(0.f)) {
         Ray nray = ray.reflect(inter_p, normal);
-        auto t = render_trace(nray, in_object, depth+1);
+        auto t = render_trace(nray, in_object, depth+1, i, j);
         //glm::vec3 halfway = glm::normalize(nray.dir - ray.dir); // nray.dir + (-ray.dir)
         //float coef = glm::pow(glm::max(glm::dot(normal, halfway), 0.f), mat->shininess);
         //res += t * mat->specular * coef;
-        res += t * mat->specular;
+        auto tres = t * mat->specular * mat->opaque;
+        res += tres;
+        drawer->set_rgb(i, j, tres, PMDrawer::sp, depth);
     }
     if(mat->opaque != 1.f) {
         auto cn = medium_manager.get_cur_new(imodel);
         Ray nray;
         bool succ = ray.refract(inter_p, normal,
                 cn.first, cn.second, nray);
+        if (!succ) {
+            auto a = 0;
+           // render_trace(ray, in_object, depth, i, j);
+        }
         if (succ) {
             medium_manager.inform(true, imodel);
-            auto t = render_trace(nray, !in_object, depth+1);
-            res = glm::mix(t, res, mat->opaque); // t * (1 - opaque) + res * opaque
+            auto t = render_trace(nray, !in_object, depth + 1, i, j);
+            medium_manager.reduce_depth();
+            //res = glm::mix(t, res, mat->opaque); // t * (1 - opaque) + res * opaque
+            auto tres = t * (1.f - mat->opaque);
+            res += tres;
+            drawer->set_rgb(i, j, tres, PMDrawer::tr, depth);
         }
     }
     res += mat->emission;
+    drawer->set_rgb(i, j, mat->emission, PMDrawer::em, depth);
     glm::vec3 caustic(0.f);
-    if (mat->opaque == 1.f && caustic_map.radiance_estimate(ray.dir, inter_p, normal, caustic)) {
-        res += caustic;
+    if (caustic_map.radiance_estimate(ray.dir, inter_p, normal, caustic)) {
+        auto tres = caustic * mat->opaque * settings.ca_div;
+        res += tres;
+        drawer->set_rgb(i, j, tres, PMDrawer::ca, depth);
     }
     return res;
 }
 void PhotonMapping::render() {
-    canvas->clear();
+    drawer->clear();
     std::cout << "Rendering has started" << std::endl;
-    float width = canvas->get_width();
-    float height = canvas->get_height();
-    constexpr float fov = glm::radians(60.f);
-    float step_x = 0.5f - width / 2.f;
-    float step_y = -0.5f + height / 2.f;
-    float dir_z = -height / (2.f * tan(fov / 2.f));
+    float width = drawer->get_width();
+    float height = drawer->get_height();
+    scene.camera.set_hw(height, width);
+    //scene.camera = glm::vec3(-0.82277, 1.6047, 1.4969);
+    //scene.camera = glm::vec3(-0.38551, -0.5847, 0.68857);
 
+    /* Вине глассе
+    scene.camera = glm::vec3(0.f, 25.f, 100.f);
+    scene.normal = -glm::normalize(scene.camera);
+    */
+
+    /* Ring )))
+    scene.camera.set_position(glm::vec3(0.f, 0.35f, 0.5f));
+    scene.camera.look_at(glm::vec3(0.f));
+    */
+    
+    /*Sphere*/
+    scene.camera.set_position(glm::vec3(-0.00999999046, 0.795000017, 2.49000001));
+    scene.camera.look_to(glm::vec3(0.f, 0.f, -1.f));
+
+    glm::vec3 origin = scene.camera.get_position();
+    //glm::vec3 origin = scene.camera - scene.normal * 1.5f;
+    bool flag = false;
     for (int j = 0; j < height; j++) {
         for (int i = 0; i < width; i++) {
             medium_manager.clear();
-            float dir_x = i + step_x;
-            float dir_y = -j + step_y;
-            glm::vec3 dir = glm::normalize(glm::vec3(dir_x, dir_y, dir_z));
-            Ray ray(scene.camera - scene.normal * 1.5f, dir);
-            glm::vec3 color = render_trace(ray, false, 0);
-            if (color == glm::vec3(-1.f)) {
-                color = render_trace(ray, false, 0);
+            glm::vec3 dir = scene.camera.get_ray(i, j);
+            Ray ray(origin, dir);
+            if (i == 199 && j == 167) {
+                render_trace(ray, false, 0, i, j);
+            }else if (render_trace(ray, false, 0, i, j) != glm::vec3(0.f)) {
+                flag = true;
             }
-            hdr(color);
-            color *= settings.brightness;
-            canvas->set_rgb(i, j, color * 255.f);
         }
         if (j % ((size_t)height / 50) == 0) {
             std::cout << "\tPixels filled: " << (j + 1) * width << " of " << width * height << std::endl;        }
@@ -333,36 +390,4 @@ glm::vec3 PhotonMapping::CookTorrance_GGX(float NdotL, float NdotV, float NdotH,
     float DCoeff = GGX_DFunction(NdotH, sqRoughness);
 
     return glm::max(GCoeff * DCoeff * F * 0.25f / NdotV, 0.f);
-}
-void PhotonMapping::update_exposure(float exposure) {
-    settings.exposure = exposure;
-}
-void PhotonMapping::update_brightness(float brightness) {
-    settings.brightness = brightness;
-}
-void PhotonMapping::update_ls_intensity(const glm::vec3& intensity) {
-    for(auto& m : scene.objects){
-        if (m.get_ls() != nullptr) {
-            m.set_light_intensity(intensity);
-        }
-    }
-}
-void PhotonMapping::update_dpmdi(bool value) {
-    settings.dpmdi = value;
-}
-void PhotonMapping::update_gphc(size_t gphc) {
-    photon_collector.update_gsize(gphc);
-}
-void PhotonMapping::update_cphc(size_t cphc) {
-    photon_collector.update_csize(cphc);
-}
-void PhotonMapping::update_gnp_count(size_t count) {
-    global_map.update_np_size(count);
-}
-void PhotonMapping::update_cnp_count(size_t count) {
-    caustic_map.update_np_size(count);
-}
-void PhotonMapping::update_disc_compression(float coef) {
-    global_map.update_disc_compression(coef);
-    caustic_map.update_disc_compression(coef);
 }

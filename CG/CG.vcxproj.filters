@@ -55,6 +55,9 @@
     <ClCompile Include="MainWindow.cpp">
       <Filter>Исходные файлы\Widgets</Filter>
     </ClCompile>
+    <ClCompile Include="PMDrawer.cpp">
+      <Filter>Исходные файлы\Drawing\PhotonMapping</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Selector.h">
@@ -143,6 +146,12 @@
     </ClInclude>
     <ClInclude Include="MainWindow.h">
       <Filter>Файлы заголовков\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="PMDrawer.h">
+      <Filter>Файлы заголовков\Drawing\PhotonMapping</Filter>
+    </ClInclude>
+    <ClInclude Include="PMSettingsUpdater.h">
+      <Filter>Файлы заголовков\Drawing\PhotonMapping</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
