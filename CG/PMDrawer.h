@@ -123,6 +123,8 @@ private:
     OpenGLManager* manager;
     Canvas canvas;
     FrameBuffer buffer1, buffer2;
+    CImgTexture final_layer;
+    cimg_library::CImgDisplay main_disp;
     void update_textures() {
         for (size_t i = 0; i < layers_number; i++) {
             auto tex = textures[i];
@@ -168,37 +170,39 @@ private:
     }
     void update() {
         if (settings.changed.layers) {
-            update_textures();
+            //update_textures();
             settings.changed.layers = false;
         }
         if (settings.changed.layerShader) {
-            updateLayerShader();
+            //updateLayerShader();
             settings.changed.layerShader = false;
         }
         //settings.changed.drawable = false;
-        /*int width = final_layer.get_width();
+        int width = final_layer.get_width();
         int height = final_layer.get_height();
         glm::vec3 rgb(0.f);
         for (int j = 0; j < height; j++) {
             for (int i = 0; i < width; i++) {
                 rgb.r = rgb.g = rgb.b = 0.f;
                 for (size_t l = 0; l < Layer::gi; l++) {
-                    rgb += settings.active[l] ? layers[l](i, j) : glm::vec3(0.f);
+                    rgb += settings.layerShader.active[l] ? layers[l](i, j) : glm::vec3(0.f);
                 }
-                rgb += settings.active[Layer::gi] ? layers[Layer::gi](i, j) * settings.gl_mult 
+                rgb += settings.layerShader.active[Layer::gi] ? layers[Layer::gi](i, j)
+                    * settings.layerShader.gl_mult
                     : glm::vec3(0.f);
-                rgb += settings.active[Layer::ca] ? layers[Layer::ca](i, j) * settings.ca_div
+                rgb += settings.layerShader.active[Layer::ca] ? layers[Layer::ca](i, j) * settings
+                    .layerShader.ca_mult
                     : glm::vec3(0.f);
-                if (settings.hdr) {
+                if (settings.layerShader.hdr) {
                     hdr(rgb);
                 }
                 else {
                     rgb = glm::clamp(rgb, 0.f, 1.f);
                 }
-                rgb *= settings.brightness;
+                //rgb *= settings.brightness;
                 final_layer.set_rgb(i, j, rgb * 255.f);
             }
-        }*/
+        }
     }
     void hdr(glm::vec3& dest) {
         dest = glm::vec3(1.f) - glm::exp(-dest * settings.layerShader.exposure);
@@ -217,14 +221,14 @@ public:
     unsigned int textureColorbuffer;
     unsigned int quadVAO;
     PMDrawer(size_t width, size_t height) : layers_number(6), layers(layers_number), 
-        textures(layers_number) {
+        textures(layers_number), final_layer(300, 300) {
         settings.layerShader.active = std::vector<int>(layers_number);
         std::generate(settings.layerShader.active.begin(), settings.layerShader.active.end(), 
             []() { return false; });
-
+        main_disp = cimg_library::CImgDisplay(final_layer.image, "Canvas");
         settings.width = width;
         settings.height = height;
-        update_resolution(width, height);
+        update_resolution(300, 300);
     }
     
     void opengl_init() {
@@ -258,7 +262,8 @@ public:
     void display() {
         update();
         
-        
+        main_disp.display(final_layer.image);
+        return;
         {
             glViewport(500, 0, settings.width, settings.height);
             //buffer1.bind_fb();
@@ -304,7 +309,7 @@ public:
         pmsu.link_drawer(&settings);
     }
     void check_resolution() {
-        if (settings.changed.resolution) {
+        if (false && settings.changed.resolution) {
             update_resolution(settings.width, settings.height);
             update_framebuffer(settings.width, settings.height);
             updateFXAAShader();
