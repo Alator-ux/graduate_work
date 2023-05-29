@@ -8,6 +8,7 @@
 #include <set>
 #include <chrono>
 #include <stack>
+#include <sstream>
 template <typename T>
 struct Random {
     /// <summary>
@@ -153,9 +154,14 @@ public:
     void clear() {
         inner_ = std::vector<T>(dimx_ * dimy_);
     }
+    T* data() {
+        return inner_.data();
+    }
 };
 
 template<typename T>
 T convert(const void* pointer) {
     return *((const T*)pointer);
 }
+
+std::vector<std::string> split(const std::string& str, char delim);

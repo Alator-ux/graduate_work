@@ -14,6 +14,8 @@ void PhotonMapping::init(PMDrawer* drawer, const std::vector<PMModel>& objects,
     pmsu.link_pc(&photon_collector);
     pmsu.link_main(&settings);
 }
+Timer timers;
+
 void PhotonMapping::emit(const PMModel& ls) {
     size_t ne = 0;// Number of emitted photons
     Ray ray;
@@ -49,6 +51,7 @@ void PhotonMapping::emit(const PMModel& ls) {
             photon_collector.pring_logs();
         }
     }
+    timers.print_total();
 }
 bool PhotonMapping::refract(float cosNL, const PMModel* ipmm) {
     const Material* im = ipmm->get_material();
@@ -121,23 +124,26 @@ bool PhotonMapping::find_intersection(const Ray& ray, bool reverse_normal,
     for (PMModel& model : scene.objects) {
         float temp_inter;
         size_t tii0, tii1, tii2;
+        glm::vec3 tnormal;
         bool succ = model.intersection(ray, false, temp_inter, 
-            tii0, tii1, tii2); // TODO in_object скорее всего дропнуть
+            tii0, tii1, tii2, tnormal); // TODO in_object скорее всего дропнуть
         if (succ && (inter == 0.f || temp_inter < inter)) {
             inter = temp_inter;
             ii0 = tii0;
             ii1 = tii1;
             ii2 = tii2;
             imodel = &model;
+            normal = tnormal;
         }
     }
     if (imodel == nullptr) {
         return false;
     }
     inter_p = ray.origin + ray.dir * inter;
-    imodel->get_normal(ii0, ii1, ii2, inter_p, normal);
-    //normal = imodel->get_normal(ii2);
-    if (reverse_normal && glm::dot(ray.dir, normal) > 0) { // reverse_normal &&
+    //inter_p += normal * 0.1f;
+    //imodel->get_normal(ii0, ii1, ii2, inter_p, normal);
+    //normal = imodel->get_normal(ii0);
+    if (glm::dot(ray.dir, normal) > 0) { // reverse_normal &&
         normal *= -1.f;
     }
     return true;
@@ -167,7 +173,10 @@ void PhotonMapping::trace(const Ray& ray, bool in_object, const glm::vec3& pp) {
     }
     case PathType::dif_refl:
         photon_collector.push(Photon(inter_p, pp, ray.dir), path_operator);
+        timers.start();
         new_ray = ray.reflect_spherical(inter_p, normal);
+        timers.end();
+        timers.sum_total();
         break;
     case PathType::spec_refl:
         new_ray = ray.reflect(inter_p, normal);
@@ -217,20 +226,22 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth,
     if (!find_intersection(ray, in_object, imodel, normal, inter_p)) {
         return res;
     }
-    if (depth == 0 && imodel->name != "leftSphere") {
-       return res;
+    if (depth == 0 && imodel->name != "water") {
+       //return res;
     }
-    if (depth >= 1 && imodel->name == "leftSphere") {
-        return res;
+    if (depth >= 1 && imodel->name == "floor") {
+        //return res;
+        auto a = 1;
     }
     const Material* mat = imodel->get_material();
     if (depth == 0 && !in_object) {
         auto a = 0;
     }
+    //drawer->set_rgb(i, j, mat->diffuse, PMDrawer::di, depth);
+    //return mat->diffuse;
     // std::cout << "SCuucccc" << std::endl;
-
-    //drawer->set_rgb(i, j, mat->diffuse, PMDrawer::em, depth);
-    //return mat->emission;
+   //drawer->set_rgb(i, j, mat->diffuse, PMDrawer::di, depth);
+   //return mat->emission;
     if (mat->diffuse != glm::vec3(0.f)) {
         glm::vec3 re(0.f);
         int lcount = 0;
@@ -243,13 +254,11 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth,
             if (find_intersection(tray, in_object, timodel, tnormal, tinter_p) && vec3_equal(inter_p, tinter_p)) {
                 lcount++;
                 //auto ls_normal = timodel->get_normal(0);  *glm::dot(ls_normal, tray.dir)
-                if (depth >= 1) {
-                    re += glm::max(glm::dot(normal, -tray.dir), 0.f);
-                }
+                re += glm::max(glm::dot(normal, -tray.dir), 0.f);
             }
         }
         re /= lcount == 0 ? 1 : lcount;
-        auto di_op = mat->diffuse* mat->opaque;
+        auto di_op = mat->diffuse * mat->opaque;
         drawer->set_rgb(i, j, re * di_op, PMDrawer::di, depth);
         if (settings.dpmdi) {
             if (lcount == 0) {
@@ -281,11 +290,8 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth,
         Ray nray;
         bool succ = ray.refract(inter_p, normal,
                 cn.first, cn.second, nray);
-        if (!succ) {
-            auto a = 0;
-           // render_trace(ray, in_object, depth, i, j);
-        }
         if (succ) {
+            medium_manager.increase_depth();
             medium_manager.inform(true, imodel);
             auto t = render_trace(nray, !in_object, depth + 1, i, j);
             medium_manager.reduce_depth();
@@ -299,13 +305,14 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth,
     drawer->set_rgb(i, j, mat->emission, PMDrawer::em, depth);
     glm::vec3 caustic(0.f);
     if (caustic_map.radiance_estimate(ray.dir, inter_p, normal, caustic)) {
-        auto tres = caustic * mat->opaque * settings.ca_div;
+        auto tres = caustic * mat->opaque * settings.ca_mult;
         res += tres;
         drawer->set_rgb(i, j, tres, PMDrawer::ca, depth);
     }
     return res;
 }
 void PhotonMapping::render() {
+    drawer->check_resolution();
     drawer->clear();
     std::cout << "Rendering has started" << std::endl;
     float width = drawer->get_width();
@@ -320,27 +327,29 @@ void PhotonMapping::render() {
     */
 
     /* Ring )))
-    scene.camera.set_position(glm::vec3(0.f, 0.35f, 0.5f));
+    scene.camera.set_position(glm::vec3(0.f, 1.f, 1.f));
     scene.camera.look_at(glm::vec3(0.f));
-    */
+    //scene.camera.set_position(lsources[0].position + 0.1f * (-glm::normalize(lsources[0].position)));
+   // scene.camera.look_to(glm::vec3(-0.0029, - 0.6365, - 0.7713));*/
     
     /*Sphere*/
     scene.camera.set_position(glm::vec3(-0.00999999046, 0.795000017, 2.49000001));
     scene.camera.look_to(glm::vec3(0.f, 0.f, -1.f));
 
+    //scene.camera.set_position(glm::vec3(2.5f, 0.75f, 1.25f));
+    //scene.camera.look_at(glm::vec3(0.5f, 0.f, 1.0f));
+
+    /*water
+    scene.camera.set_position(glm::vec3(-0.00999999046, 0.795000017, 1.99000001));
+    scene.camera.look_to(glm::vec3(0.f, 0.f, -1.f));*/
+
     glm::vec3 origin = scene.camera.get_position();
-    //glm::vec3 origin = scene.camera - scene.normal * 1.5f;
-    bool flag = false;
     for (int j = 0; j < height; j++) {
         for (int i = 0; i < width; i++) {
             medium_manager.clear();
             glm::vec3 dir = scene.camera.get_ray(i, j);
             Ray ray(origin, dir);
-            if (i == 199 && j == 167) {
-                render_trace(ray, false, 0, i, j);
-            }else if (render_trace(ray, false, 0, i, j) != glm::vec3(0.f)) {
-                flag = true;
-            }
+            render_trace(ray, false, 0, i, j);
         }
         if (j % ((size_t)height / 50) == 0) {
             std::cout << "\tPixels filled: " << (j + 1) * width << " of " << width * height << std::endl;        }

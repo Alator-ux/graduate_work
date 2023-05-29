@@ -32,7 +32,7 @@ class PMModel {
     size_t id;
     glm::vec3 barycentric_coords(const glm::vec3& point, size_t ii0, size_t ii1, size_t ii2);
     bool traingle_intersection(const Ray& ray, bool in_object, const glm::vec3& p0,
-        const glm::vec3& p1, const glm::vec3& p2, float& out) const;
+        const glm::vec3& p1, const glm::vec3& p2, float& out, glm::vec3& uvw) const;
     LightSource* ls;
 public:
     std::string name;
@@ -40,7 +40,7 @@ public:
     PMModel(const PMModel& other);
     PMModel(const ModelConstructInfo& mci, LightSource* ls= nullptr);
     bool intersection(const Ray& ray, bool in_object, float& intersection,
-        size_t& ip0, size_t& ip1, size_t& ip2) const;
+        size_t& ip0, size_t& ip1, size_t& ip2, glm::vec3& normal) const;
     bool equal(const PMModel& other) const;
     bool equal(size_t other_id) const;
     void set_light_intensity(const glm::vec3& value);
@@ -48,7 +48,7 @@ public:
     size_t get_id() const;
     glm::vec3* get_wn() const;
     glm::vec3 get_normal(size_t i) const;
-    void get_normal(size_t ii0, size_t ii1, size_t ii2, const glm::vec3& point, glm::vec3& normal);
+    void get_normal(size_t ii0, size_t ii1, size_t ii2, glm::vec3& point, glm::vec3& normal);
     const LightSource* get_ls() const;
     std::pair<glm::vec3, glm::vec3> get_radiation_info() const;
 };

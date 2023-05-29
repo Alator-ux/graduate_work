@@ -18,7 +18,7 @@ const GLuint W_WIDTH = 600;
 const GLuint W_HEIGHT = 600;
 std::vector<Shader> shaders;
 Shader lampShader;
-PMDrawer drawer(300, 300);
+PMDrawer drawer(600, 600);
 PMSettingsUpdater pmsu;
 Camera camera;
 PhotonMapping pm;
@@ -47,21 +47,31 @@ int main() {
 
     auto manager = OpenGLManager::get_instance();
     Init(manager);
-
+    drawer.opengl_init();
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     ImGui::StyleColorsDark();
 
+   // pmsu.update_xstart(300);
+
     std::unique_ptr<Window> main_window(new MainWindow(&pmsu, &pm, &drawer));
    
     bool show_demo_window = false;
     std::string vbo_name = "";
+    pmsu.window_settings.width = pmsu.window_settings.output->width + 500;
+    pmsu.window_settings.height = pmsu.window_settings.output->height;
+    glfwSetWindowSize(window, pmsu.window_settings.width, pmsu.window_settings.height);
     while (!glfwWindowShouldClose(window))
     {   
+        if (pmsu.window_settings.changed.resolution) {
+            //glfwSetWindowSize(window, 
+            //    pmsu.window_settings.output->width + 500, pmsu.window_settings.output->height);
+            glfwSetWindowSize(window,
+                   pmsu.window_settings.output->width + 500, pmsu.window_settings.output->height);
+        }
         glfwPollEvents();
-
         // Start the Dear ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -69,15 +79,14 @@ int main() {
         ImGui::ShowDemoWindow();
 
         main_window.get()->draw();
-        drawer.display();
 
         // Rendering
         ImGui::Render();
         int display_w, display_h;
         glfwMakeContextCurrent(window);
         glfwGetFramebufferSize(window, &display_w, &display_h);
-        glViewport(0, 0, display_w, display_h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        drawer.display();
         Do_Movement();
         double time = glfwGetTime();
         Draw(mode, 0,0, time);
@@ -165,6 +174,8 @@ void Init(OpenGLManager* manager) {
     //auto map = loadOBJ("./models/ring", "ring.obj");
     //auto map = loadOBJ("./models/wine_glass", "WineGlasses.obj");
     //auto map = loadOBJ("./models/raw_ring", "simple_ring.obj");
+    //auto map = loadOBJ("./models/ring", "metal_ring.obj");
+    //auto map = loadOBJ("./models/wine_glass", "glasses.obj");
     glm::vec3 lspos(0.f);
     std::vector<PMModel> scene;
     for (auto& kv : map) {

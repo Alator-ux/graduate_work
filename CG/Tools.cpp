@@ -8,3 +8,13 @@ bool vec3_equal(const glm::vec3& f, const glm::vec3& s) {
     res = res && glm::abs(f.z - s.z) < eps;
     return res;
 }
+
+std::vector<std::string> split(const std::string& str, char delim) {
+    std::stringstream ss(str);
+    std::vector<std::string> res;
+    std::string temp;
+    while (std::getline(ss, temp, delim)) {
+        res.push_back(temp);
+    }
+    return res;
+}

@@ -136,12 +136,12 @@ public:
                 eta2 = scene.objects[j].get_material()->refr_index;
                 eta = eta2 / eta1; // from eta1 medium to eta2 medium
                 if (eta <= 1.f && ca_table.find({ eta1, eta2 }) == ca_table.end()) {
-                    ca = std::asin(eta);
+                    ca = std::cos(std::asin(eta));
                     ca_table[{eta1, eta2}] = ca;
                 }
                 eta = eta1 / eta2; // from eta2 medium to eta1 medium
                 if (eta <= 1.f && ca_table.find({ eta2, eta1 }) == ca_table.end()) {
-                    ca = std::asin(eta);
+                    ca = std::cos(std::asin(eta));
                     ca_table[{eta2, eta1}] = ca;
                 }
             }
@@ -150,12 +150,12 @@ public:
             eta1 = scene.objects[i].get_material()->refr_index;
             eta = default_refr / eta1; // from eta1 medium to eta2 medium
             if (eta <= 1.f && ca_table.find({ eta1, default_refr }) == ca_table.end()) {
-                ca = std::asin(eta);
+                ca = std::cos(std::asin(eta));
                 ca_table[{eta1, eta2}] = ca;
             }
             eta = eta1 / default_refr; // from eta2 medium to eta1 medium
             if (eta <= 1.f && ca_table.find({ default_refr , eta1 }) == ca_table.end()) {
-                ca = std::asin(eta);
+                ca = std::cos(std::asin(eta));
                 ca_table[{eta2, eta1}] = ca;
             }
         }
@@ -164,8 +164,7 @@ public:
         if (ca_table.find(cn) == ca_table.end()) {
             return true;
         }
-        float angle = std::acos(cosNL);
-        return angle < ca_table[cn]; // <= ?
+        return cosNL > ca_table[cn]; // <= ?
     }
     std::pair<float, float> get_cur_new(const PMModel* model) {
         std::pair<float, float> res;
@@ -191,7 +190,6 @@ public:
         if (!refract_suc) {
             return;
         }
-        st_mediums.push(st_mediums.top());
         auto& mediums = st_mediums.top().mediums;
         auto& exiting = st_mediums.top().exiting;
         if (exiting && model->equal(mediums.peek().second)) {
@@ -202,6 +200,9 @@ public:
         else { // иначе луч пересек еще один объект, добавляем текущую среду
             mediums.push({ model->get_material()->refr_index, model->get_id() });
         }
+    }
+    void increase_depth() {
+        st_mediums.push(st_mediums.top());
     }
     void reduce_depth() {
         st_mediums.pop();

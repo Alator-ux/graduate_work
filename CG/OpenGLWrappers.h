@@ -75,7 +75,7 @@ public:
         }
         return res;
     }
-    Texture get_texture(const std::string& name) {
+    Texture& get_texture(const std::string& name) {
         if (!_textures.count(name)) {
             std::cout << "No texture with name " << name << std::endl;
         }
@@ -121,9 +121,12 @@ public:
     void attach_colorbuffer(const std::string& color_name, GLuint n = 0) {
         glFramebufferTexture2D(GL_FRAMEBUFFER, colorbuffer_attachments[n], GL_TEXTURE_2D, _textures[color_name].getId(), 0);
     }
+    void set_texture(const std::string& name, Texture& tex) {
+        _textures[name] = tex;
+    }
     void init_colorbuffer(const std::string& color_name, const GLuint width, const GLuint height) {
         Texture colorBuffer = Texture();
-        colorBuffer.create_rgba_buffer(width, height);
+        colorBuffer.create_rgb_buffer(width, height);
         _textures[color_name] = colorBuffer;
     }
     void create_wrap_clamp_buffer(const std::string& color_name, const GLuint width, const GLuint height) {
@@ -310,23 +313,22 @@ public:
     GLuint get_program_id() {
         return program;
     }
-
-    GLint get_attrib_location(const char* name)
-    {
-        GLint res = glGetAttribLocation(program, name);
-        if (res == -1)
-        {
-            std::cout << "could not bind attrib " << name << std::endl;
-            //error
-        }
-        return res;
-    }
     GLint get_uniform_location(const char* name)
     {
         GLint res = glGetUniformLocation(program, name);
         if (res == -1)
         {
             std::cout << "could not bind uniform " << name << std::endl;
+            //error
+        }
+        return res;
+    }
+    GLint get_attrib_location(const char* name)
+    {
+        GLint res = glGetAttribLocation(program, name);
+        if (res == -1)
+        {
+            std::cout << "could not bind attrib " << name << std::endl;
             //error
         }
         return res;
@@ -351,10 +353,10 @@ public:
         GLint location = get_uniform_location(name);
         glUniform1f(location, v);
     }
-    void uniform2f(GLint location, glm::vec2& data) {
+    void uniform2f(GLint location, const glm::vec2& data) {
         glUniform2f(location, data.x, data.y);
     }
-    void uniform2f(const char* name, glm::vec2& data) {
+    void uniform2f(const char* name, const glm::vec2& data) {
         GLint location = get_uniform_location(name);
         glUniform2f(location, data.x, data.y);
     }
@@ -427,7 +429,10 @@ public:
             uniform3f(location, arr[i].x, arr[i].y, arr[i].z);
         }
     }
-
+    void uniform1iv(const char* name, const int* data, size_t i = 1) {
+        GLint loc = get_uniform_location(name);
+        glUniform1iv(loc, i, data);
+    }
     void uniformMatrix4fv(GLint location, const glm::mat4 mat) {
         glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat));
     }

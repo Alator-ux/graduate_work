@@ -42,14 +42,15 @@ Ray Ray::reflect_spherical(const glm::vec3& from, const glm::vec3& normal) const
     } while (glm::dot(new_dir, normal) < 0);
     Ray res;
     res.dir = glm::normalize(new_dir);
-    res.origin = from;// +0.00001f * new_dir;
+    res.origin = from + 0.001f * res.dir;
     return res;
 }
 Ray Ray::reflect(const glm::vec3& from, const glm::vec3& normal) const {
-    glm::vec3 refl_dir = dir - 2.f * normal * glm::dot(dir, normal);
+    auto dnd = glm::dot(dir, normal);
+    glm::vec3 refl_dir = dir - 2.f * normal * dnd;
     Ray res;
     res.dir = glm::normalize(refl_dir);
-    res.origin = from;// +0.00001f * refl_dir;
+    res.origin = from + 0.01f * res.dir;
     return res;
 }
 bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, float refr2, Ray& out) const {
@@ -99,7 +100,7 @@ bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, f
         return false;
     }
     out.dir = eta * dir + (w - sqrt(1.f + c2m)) * normal;
-    out.origin = from;// +0.000001f * out.dir;
+    out.origin = from + 0.01f * out.dir;
     return true;
 }
 // ========== Ray section end ==========
@@ -175,78 +176,109 @@ glm::vec3 PMModel::barycentric_coords(const glm::vec3& p, size_t ii0, size_t ii1
 
     return res;
 }
-bool PMModel::traingle_intersection(const Ray& ray, bool in_object, const glm::vec3& p0,
-    const glm::vec3& p1, const glm::vec3& p2, float& out) const {
+bool PMModel::traingle_intersection(const Ray& ray, bool in_object, const glm::vec3& v0,
+    const glm::vec3& v1, const glm::vec3& v2, float& out, glm::vec3& uvw) const {
     out = 0.f;
-    glm::vec3 edge1 = p1 - p0;
-    glm::vec3 edge2 = p2 - p0;
-    glm::vec3 h = glm::cross(ray.dir, edge2);
-    float a = glm::dot(edge1, h);
+    // compute the plane's normal
+    glm::vec3 v0v1 = v1 - v0;
+    glm::vec3 v0v2 = v2 - v0;
+    // no need to normalize
+    glm::vec3 N = glm::cross(v0v1, v0v2); // N
+    float denom = glm::dot(N, N);
 
-    if (a > -eps && a < eps) {
-        return false;       // Этот луч параллелен этому треугольнику.
-    }
+    // Step 1: finding P
 
-    float f = 1.0f / a;
-    glm::vec3 s = ray.origin - p0;
-    float u = f * glm::dot(s, h);
-    if (u < 0 || u > 1)
+    // check if the ray and plane are parallel.
+    float NdotRayDirection = glm::dot(N, ray.dir);
+    if (fabs(NdotRayDirection) < eps) // almost 0
+        return false; // they are parallel so they don't intersect! 
+
+    // compute t (equation 3)
+    out = (glm::dot(N, v0) - glm::dot(N,ray.origin)) / NdotRayDirection;
+    // check if the triangle is behind the ray
+    if (out < 0) return false; // the triangle is behind
+
+    // compute the intersection point using equation 1
+    glm::vec3 P = ray.origin + out * ray.dir;
+
+    // Step 2: inside-outside test
+    glm::vec3 C; // vector perpendicular to triangle's plane
+
+    // edge 0
+    glm::vec3 edge0 = v1 - v0;
+    glm::vec3 vp0 = P - v0;
+    C = glm::cross(edge0, vp0);
+    float w = glm::dot(N, C);
+    if (w < 0) return false; // P is on the right side
+
+    // edge 1
+    /*glm::vec3 edge1 = v2 - v1;
+    glm::vec3 vp1 = P - v1;
+    C = glm::cross(edge1, vp1);
+    float u = glm::dot(N, C);
+    if (u < 0)  return false; // P is on the right side*/
+
+    // edge 2
+    glm::vec3 edge2 = v0 - v2;
+    glm::vec3 vp2 = P - v2;
+    C = glm::cross(edge2, vp2);
+    float v = glm::dot(N, C);
+    if (v < 0) return false; // P is on the right side;
+    w /= denom;
+    v /= denom;
+    float u = 1.f - v - w;
+    if (u <= 0) {
         return false;
-
-    glm::vec3 q = glm::cross(s, edge1);
-    float v = f * glm::dot(ray.dir, q);
-    if (v < 0 || u + v > 1) {
-        return false;
     }
-    // На этом этапе мы можем вычислить t, чтобы узнать, где находится точка пересечения на линии.
-    float t = f * glm::dot(edge2, q);
-    if (t > eps)
-    {
-        out = t;
-        return true;
-    }
-    //Это означает, что есть пересечение линий, но не пересечение лучей.
-    return false;
+    uvw.x = u;
+    uvw.y = v;
+    uvw.z = w;
+    return true; // this ray hits the triangle
 }
 bool PMModel::intersection(const Ray& ray, bool in_object, float& intersection, 
-    size_t& ip0, size_t& ip1, size_t& ip2) const {
+    size_t& ii0, size_t& ii1, size_t& ii2, glm::vec3& normal) const {
     intersection = 0.f;
-    ip0 = ip1 = ip2 = 0;
+    ii0 = ii1 = ii2 = 0;
+    glm::vec3 uvw;
     size_t l = 0;
     size_t i = 0;
     float temp;
     bool succ;
     while (l < mci.lengths.size()) {
         temp = 0.f;
+        glm::vec3 tuvw;
         if (mci.lengths[l] == 3) {
             succ = traingle_intersection(ray, in_object, mci.vertices[i].position,
-                mci.vertices[i + 1].position, mci.vertices[i + 2].position, temp);
+                mci.vertices[i + 1].position, mci.vertices[i + 2].position, temp, tuvw);
             if (succ && (intersection == 0 || temp < intersection)) {
                 intersection = temp;
-                ip0 = i;
-                ip1 = i + 1;
-                ip2 = i + 2;
+                uvw = tuvw;
+                ii0 = i;
+                ii1 = i + 1;
+                ii2 = i + 2;
             }
             i += 3;
         }
         else if (mci.lengths[l] == 4) {
             succ = traingle_intersection(ray, in_object, mci.vertices[i].position,
-                mci.vertices[i + 1].position, mci.vertices[i + 3].position, temp);
+                mci.vertices[i + 1].position, mci.vertices[i + 3].position, temp, tuvw);
             if (succ && (intersection == 0 || temp < intersection)) {
                 intersection = temp;
-                ip0 = i;
-                ip1 = i + 1;
-                ip2 = i + 3;
+                uvw = tuvw;
+                ii0 = i;
+                ii1 = i + 1;
+                ii2 = i + 3;
             }
             else {
                 temp = 0.f;
                 succ = traingle_intersection(ray, in_object, mci.vertices[i + 1].position,
-                    mci.vertices[i + 2].position, mci.vertices[i + 3].position, temp);
+                    mci.vertices[i + 2].position, mci.vertices[i + 3].position, temp, tuvw);
                 if (succ && (intersection == 0 || temp < intersection)) {
                     intersection = temp;
-                    ip0 = i + 1;
-                    ip1 = i + 2;
-                    ip2 = i + 3;
+                    uvw = tuvw;
+                    ii0 = i + 1;
+                    ii1 = i + 2;
+                    ii2 = i + 3;
                 }
             }
             i += 4;
@@ -256,22 +288,42 @@ bool PMModel::intersection(const Ray& ray, bool in_object, float& intersection,
         }
         l++;
     }
-    return intersection != 0.f;
+    if (intersection == 0.f) {
+        return false;
+    }
+    auto& n0 = mci.vertices[ii0].normal;
+    auto& n1 = mci.vertices[ii1].normal;
+    auto& n2 = mci.vertices[ii2].normal;
+    normal = glm::normalize(n0 * uvw.x + n1 * uvw.y + n2 * uvw.z);
+    /*normal.x = n0.x * uvw.y + n1.x * uvw.z + n2.x * uvw.x;
+    normal.y = n0.y * uvw.y + n1.y * uvw.z + n2.y * uvw.x;
+    normal.z = n0.z * uvw.y + n1.z * uvw.z + n2.z * uvw.x;*/
+    return true;
 }
 glm::vec3 PMModel::get_normal(size_t i) const {
     return mci.vertices[i].normal;
 }
-void PMModel::get_normal(size_t ii0, size_t ii1, size_t ii2, const glm::vec3& point, glm::vec3& normal) {
+void PMModel::get_normal(size_t ii0, size_t ii1, size_t ii2, glm::vec3& point, glm::vec3& normal) {
     if (mci.smooth) {
         auto uvw = barycentric_coords(point, ii0, ii1, ii2);
         //normal = glm::normalize(mci.vertices[inter_ind.x].normal * uvw.x +
         //    mci.vertices[inter_ind.y].normal * uvw.y + mci.vertices[inter_ind.z].normal * uvw.z);
+        auto np  = mci.vertices[ii0].position * uvw.x +
+            mci.vertices[ii1].position * uvw.y + mci.vertices[ii2].position * uvw.z;
         auto& n0 = mci.vertices[ii0].normal;
         auto& n1 = mci.vertices[ii1].normal;
         auto& n2 = mci.vertices[ii2].normal;
+
+        if (!vec3_equal(point, np)) {
+           // std::cout << np.x << " " << np.y << " " << np.z << std::endl;
+            auto a = 1;
+        }
+        //point = np;
         normal.x = n0.x * uvw.x + n1.x * uvw.y + n2.x * uvw.z;
         normal.y = n0.y * uvw.x + n1.y * uvw.y + n2.y * uvw.z;
         normal.z = n0.z * uvw.x + n1.z * uvw.y + n2.z * uvw.z;
+
+        //point += normal * 0.1f;
         return;
     }
     normal = mci.vertices[ii0].normal;

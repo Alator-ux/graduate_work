@@ -22,9 +22,6 @@
     <ClCompile Include="imgui\imgui_widgets.cpp">
       <Filter>Linked\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="imgui\imgui-SFML.cpp">
-      <Filter>Linked\imgui</Filter>
-    </ClCompile>
     <ClCompile Include="Main.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
@@ -173,6 +170,18 @@
     <None Include="phong.vert">
       <Filter>Shaders\phong</Filter>
     </None>
+    <None Include="pp_default.vert">
+      <Filter>Shaders\PP</Filter>
+    </None>
+    <None Include="layer.frag">
+      <Filter>Shaders\PP</Filter>
+    </None>
+    <None Include="FXAA.frag">
+      <Filter>Shaders\PP\AA</Filter>
+    </None>
+    <None Include="pp_final.frag">
+      <Filter>Shaders\PP</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">
@@ -249,6 +258,18 @@
     </Filter>
     <Filter Include="Исходные файлы\Tools">
       <UniqueIdentifier>{f7279428-c100-4e1d-af65-459782fb4dc2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Файлы заголовков\PP">
+      <UniqueIdentifier>{15667bbe-1d60-437b-888c-3c232997a306}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\PP">
+      <UniqueIdentifier>{72b0307d-917d-4cda-8bb0-e69ef32e69a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\PP\AA">
+      <UniqueIdentifier>{54ce376f-bcc9-4e0b-846d-e08ad8a106cb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\PP\AA\SSAA">
+      <UniqueIdentifier>{3410c22a-93ab-4487-9eff-a4b9dbbda1c3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

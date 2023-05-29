@@ -125,6 +125,9 @@ public:
         ImGui::PopItemWidth();
         return touched;
     }
+    const void* get_item() {
+        return (void*)&items[selectedItem];
+    }
     const void* get_value() {
         return (void*)&selectedItem;
     }

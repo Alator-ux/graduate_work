@@ -114,7 +114,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)\Linking\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glfw\glfw3.lib;glfw\glfw3dll.lib;glew\glew32.lib;sfml\sfml-system-d.lib;sfml\sfml-window-d.lib;sfml\sfml-graphics-d.lib;sfml\sfml-main-d.lib;GnuWin32\jpeg.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glfw\glfw3.lib;glfw\glfw3dll.lib;glew\glew32.lib;GnuWin32\jpeg.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -133,11 +133,10 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)\Linking\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opengl32.lib;glfw\glfw3.lib;glfw\glfw3dll.lib;glew\glew32.lib;sfml\sfml-system-d.lib;sfml\sfml-window-d.lib;sfml\sfml-graphics-d.lib;sfml\sfml-main-d.lib;GnuWin32\jpeg.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glfw\glfw3.lib;glfw\glfw3dll.lib;glew\glew32.lib;GnuWin32\jpeg.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="imgui\imgui-SFML.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_demo.cpp" />
     <ClCompile Include="imgui\imgui_draw.cpp" />
@@ -191,12 +190,16 @@
     <ClInclude Include="Widgets.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="FXAA.frag" />
     <None Include="lamp.frag" />
     <None Include="lamp.vert" />
+    <None Include="layer.frag" />
     <None Include="phong.frag" />
     <None Include="main.frag" />
     <None Include="main.vert" />
     <None Include="phong.vert" />
+    <None Include="pp_default.vert" />
+    <None Include="pp_final.frag" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="CG.rc" />
