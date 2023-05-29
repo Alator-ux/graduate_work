@@ -49,7 +49,7 @@ int main() {
 
     auto manager = OpenGLManager::get_instance();
     Init(manager);
-    drawer.opengl_init();
+   // drawer.opengl_init();
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
