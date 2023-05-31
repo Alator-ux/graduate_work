@@ -47,7 +47,7 @@ int main() {
 
     auto manager = OpenGLManager::get_instance();
     Init(manager);
-   // drawer.opengl_init();
+    drawer.opengl_init();
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
@@ -167,8 +167,8 @@ void Init(OpenGLManager* manager) {
     shader.init_shader("main.vert", "main.frag");
     shaders.push_back(shader);
 
-    //auto map = loadOBJ("./models/cornell_box_original", "CornellBox-Original.obj");
-    auto map = loadOBJ("./models/cornell_box_sphere", "CornellBox-Sphere.obj");
+    auto map = loadOBJ("./models/cornell_box_original", "CornellBox-Original.obj");
+    //auto map = loadOBJ("./models/cornell_box_sphere", "CornellBox-Sphere.obj");
     //auto map = loadOBJ("./models/cornell_box_water", "CornellBox-Water.obj");
     //auto map = loadOBJ("./models/cornell_box_high_water", "cornellbox-water2.obj");
     //auto map = loadOBJ("./models/ring", "ring.obj");
