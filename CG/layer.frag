@@ -1,4 +1,4 @@
-#version 330 core
+#version 410
 
 in vec2 TexCoords;
 
@@ -18,10 +18,15 @@ uniform float exposure;
 uniform float gamma;
 uniform bool HDR_ON;
 
-out vec4 outColor;
+layout (location = 0) out vec4 outColor;
+layout (location = 1) out vec4 outBloom;
 
 vec3 HDR(vec3 rgb) {
-    vec3 mapped = vec3(1.0) - exp(-rgb * exposure);
+    // vec3 mapped = vec3(1.0) - exp(-rgb * exposure);
+    // mapped = pow(mapped, vec3(1.0 / gamma));
+    // return mapped;
+    float t = pow(exposure, -1);
+    vec3 mapped = vec3(1.0) - exp(-t * rgb);
     mapped = pow(mapped, vec3(1.0 / gamma));
     return mapped;
 }
@@ -33,10 +38,12 @@ void main()
     rgb += active[di] * texture2D(layers[di], invertedCoords).rgb;
     rgb += active[sp] * texture2D(layers[sp], invertedCoords).rgb;
     rgb += active[tr] * texture2D(layers[tr], invertedCoords).rgb;
-    rgb += active[em] * texture2D(layers[em], invertedCoords).rgb;
 
-    rgb += active[gi] * texture2D(layers[gi], invertedCoords).rgb * g_mult;
-    rgb += active[ca] * texture2D(layers[ca], invertedCoords).rgb * ca_mult;
+    vec3 emRGB = active[em] * texture2D(layers[em], invertedCoords).rgb;
+    rgb += emRGB;
+
+    rgb += active[gi] * texture2D(layers[gi], invertedCoords).rgb;
+    rgb += active[ca] * texture2D(layers[ca], invertedCoords).rgb;
 
     if (HDR_ON) {
         rgb = HDR(rgb);
@@ -44,6 +51,9 @@ void main()
     else {
         rgb = clamp(rgb, 0.0, 1.0);
     }
-    
+    outBloom = vec4(0.0, 0.0, 0.0, 1.0);
+    if(emRGB != vec3(0.0)) {
+        outBloom = vec4(1.0);
+    }
     outColor = vec4(rgb, 1.0);
 }

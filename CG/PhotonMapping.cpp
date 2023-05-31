@@ -69,7 +69,8 @@ bool PhotonMapping::refract(float cosNL, const PMModel* ipmm) {
         return false;
     }
     float refr_probability;
-    refr_probability = 1.f - im->opaque;
+    refr_probability = 1.f - FresnelSchlick(cosNL, cn.first, cn.second);
+    //refr_probability = 1.f - im->opaque;
     /* ÇÀÊÎÍÑÅÐÂÈÐÎÂÀÍÍÎ ÄÎ ÒÅÑÒÀ È ÏÎÍÈÌÀÍÈß
     float divn2n1 = im->refr_index / mat_ind.first->refr_index;
     if (ca_table.find(divn2n1) != ca_table.end()) {
@@ -315,8 +316,8 @@ void PhotonMapping::render() {
     drawer->check_resolution();
     drawer->clear();
     std::cout << "Rendering has started" << std::endl;
-    float width = 300;//drawer->get_width();
-    float height = 300;//drawer->get_height();
+    float width = drawer->get_width();
+    float height = drawer->get_height();
     scene.camera.set_hw(height, width);
     //scene.camera = glm::vec3(-0.82277, 1.6047, 1.4969);
     //scene.camera = glm::vec3(-0.38551, -0.5847, 0.68857);

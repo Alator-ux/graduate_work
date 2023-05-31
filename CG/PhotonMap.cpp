@@ -252,16 +252,15 @@ void PhotonMap::total_locate_time() {
     timer.print_total();
 }
 bool PhotonMap::radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& iloc, const glm::vec3& norm, glm::vec3& out_rad) {
+    out_rad.x = out_rad.y = out_rad.z = 0;
     if (size == 0) {
         return false;
     }
-    timer.start();
     NearestPhotons np(iloc, norm, settings.np_size);
     if (!locate_r(&np)) {
         return false;
     }
 
-    out_rad.x = out_rad.y = out_rad.z = 0;
     float r, filter_r;
     filter_r = r = glm::distance(iloc, (np.container[0].pos));
     if (settings.ftype == PhotonMapSettings::FilterType::gaussian) {

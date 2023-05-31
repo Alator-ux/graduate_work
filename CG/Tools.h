@@ -2,6 +2,8 @@
 #include <random>
 #include <numeric>
 #include <ctime>
+#define _USE_MATH_DEFINES
+#include <math.h>
 #include <iostream>
 #include <GLM/ext/matrix_transform.hpp>
 #include <queue>
@@ -165,3 +167,6 @@ T convert(const void* pointer) {
 }
 
 std::vector<std::string> split(const std::string& str, char delim);
+
+
+std::vector<float> one_dim_gkernel(int size, float sigma = 0);

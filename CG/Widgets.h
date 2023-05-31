@@ -333,18 +333,22 @@ public:
 class InputFloat {
     std::string label;
     float value = 0.0f;
+    bool min_on = false;
+    float min;
 public:
     InputFloat(const std::string& label) {
         this->label = label;
     }
-    InputFloat(const std::string& label, float init_value) {
-        this->label = label;
-        this->value = init_value;
-    }
+    InputFloat(const std::string& label, float init_value) : label(label), value(init_value) { }
+    InputFloat(const std::string& label, float init_value, float min) :label(label), value(init_value),
+    min(min), min_on(true) { }
     bool draw() {
         ImGui::PushItemWidth(60);
         bool touched = ImGui::InputFloat(label.c_str(), &value);
         ImGui::PopItemWidth();
+        if (min_on && value < min) {
+            value = min;
+        }
         return touched;
     }
     float get_value() {
@@ -355,14 +359,13 @@ public:
 class InputSizeT {
     std::string label;
     int value = 0.0f;
+    int min;
+    bool min_on = false;
 public:
-    InputSizeT(const std::string& label) {
-        this->label = label;
-    }
-    InputSizeT(const std::string& label, int init_value) {
-        this->label = label;
-        this->value = init_value;
-    }
+    InputSizeT(const std::string& label) :label(label) { }
+    InputSizeT(const std::string& label, int init_value) : label(label), value(init_value) { }
+    InputSizeT(const std::string& label, int init_value, size_t min) : 
+        label(label), value(init_value), min(min), min_on(true) { }
     bool draw() {
         ImGui::PushItemWidth(60);
         bool touched = ImGui::InputInt(label.c_str(), &value, 0);
@@ -380,19 +383,18 @@ public:
 class InputInt {
     std::string label;
     int value = 0.0f;
+    int min;
+    bool min_on = false;
 public:
-    InputInt(const std::string& label) {
-        this->label = label;
-    }
-    InputInt(const std::string& label, int init_value) {
-        this->label = label;
-        this->value = init_value;
-    }
+    InputInt(const std::string& label) : label(label) { }
+    InputInt(const std::string& label, int init_value) :label(label), value(init_value) { }
+    InputInt(const std::string& label, int init_value, int min) :label(label), value(init_value),
+        min(min), min_on(true) {}
     bool draw() {
         ImGui::PushItemWidth(60);
         bool touched = ImGui::InputInt(label.c_str(), &value, 0);
-        if (value < 0) {
-            value = 0;
+        if (min_on && value < min) {
+            value = min;
         }
         ImGui::PopItemWidth();
         return touched;

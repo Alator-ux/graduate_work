@@ -230,6 +230,7 @@ class Shader {
     void read_shader(const char* path) {
         std::ifstream shader_file(path);
         std::string line;
+
         if (shader_file.is_open())
         {
             while (std::getline(shader_file, line))
@@ -272,22 +273,23 @@ public:
         glDeleteProgram(program);
     }
 
-    void init_shader(const char* vertex_source = "", const char* frag_source = "", const char* geometry_source = "") {
+    void init_shader(const std::string& vertex_source = "", const std::string& frag_source = "", 
+        const std::string& geometry_source = "") {
 
         program = glCreateProgram();
         std::cout << "Program {" << program << "}\n";
         GLuint shader;
         if (vertex_source != "") {
-            shader = compile_shader(ShaderType::vertex, vertex_source);
+            shader = compile_shader(ShaderType::vertex, vertex_source.c_str());
             glAttachShader(program, shader);
         }
         // Создаем программу и прикрепляем шейдеры к ней
         if (geometry_source != "") {
-            shader = compile_shader(ShaderType::geometry, geometry_source);
+            shader = compile_shader(ShaderType::geometry, geometry_source.c_str());
             glAttachShader(program, shader);
         }
         if (frag_source != "") {
-            shader = compile_shader(ShaderType::fragment, frag_source);
+            shader = compile_shader(ShaderType::fragment, frag_source.c_str());
             glAttachShader(program, shader);
         }
         // Линкуем шейдерную программу
@@ -305,7 +307,10 @@ public:
         }
         std::cout << "-----------------------------\n";
     }
-    Shader(){}
+    Shader(){
+        program = 0;
+        ss = std::stringstream();
+    }
     Shader(const Shader& other) {
         program = other.program;
         ss = std::stringstream();
