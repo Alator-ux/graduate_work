@@ -69,7 +69,8 @@ bool PhotonMapping::refract(float cosNL, const PMModel* ipmm) {
         return false;
     }
     float refr_probability;
-    refr_probability = 1.f - im->opaque;
+    refr_probability = 1.f - FresnelSchlick(cosNL, cn.first, cn.second);
+    //refr_probability = 1.f - im->opaque;
     /* ÇÀÊÎÍÑÅÐÂÈÐÎÂÀÍÍÎ ÄÎ ÒÅÑÒÀ È ÏÎÍÈÌÀÍÈß
     float divn2n1 = im->refr_index / mat_ind.first->refr_index;
     if (ca_table.find(divn2n1) != ca_table.end()) {

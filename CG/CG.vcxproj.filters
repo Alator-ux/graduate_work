@@ -99,9 +99,6 @@
     <ClInclude Include="Cube.h">
       <Filter>Файлы заголовков\Drawing\Drawable\3D</Filter>
     </ClInclude>
-    <ClInclude Include="STLLoader.h">
-      <Filter>Файлы заголовков\Drawing\Loaders</Filter>
-    </ClInclude>
     <ClInclude Include="ObjLoader.h">
       <Filter>Файлы заголовков\Drawing\Loaders</Filter>
     </ClInclude>

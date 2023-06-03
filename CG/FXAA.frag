@@ -1,4 +1,4 @@
-#version 330 core
+#version 410
 // Code adapted from
 // http://horde3d.org/wiki/index.php5?title=Shading_Technique_-_FXAA
 
@@ -72,5 +72,4 @@ void main()
 	else
 		// Иначе больший
 		outColor = vec4(pRes2, 1.0);
-	
 }

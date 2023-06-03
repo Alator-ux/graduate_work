@@ -16,8 +16,6 @@
 #include "Photon.h"
 const GLuint W_WIDTH = 600;
 const GLuint W_HEIGHT = 600;
-std::vector<Shader> shaders;
-Shader lampShader;
 PMDrawer drawer(600, 600);
 PMSettingsUpdater pmsu;
 Camera camera;
@@ -37,7 +35,7 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync
     glfwSetKeyCallback(window, keyboard_callback);
-    const char* glsl_version = "#version 330";
+    const char* glsl_version = "#version 410";
     // Setup Dear ImGui binding
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -76,7 +74,6 @@ int main() {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        ImGui::ShowDemoWindow();
 
         main_window.get()->draw();
 
@@ -162,10 +159,6 @@ void print_vec(const std::vector<glm::vec3>& c) {
 size_t pmpointcount;
 void Init(OpenGLManager* manager) {
     Random<unsigned>::set_seed();
-    
-    Shader shader = Shader();
-    shader.init_shader("main.vert", "main.frag");
-    shaders.push_back(shader);
 
     auto map = loadOBJ("./models/cornell_box_original", "CornellBox-Original.obj");
     //auto map = loadOBJ("./models/cornell_box_sphere", "CornellBox-Sphere.obj");
@@ -200,28 +193,10 @@ void Init(OpenGLManager* manager) {
     std::for_each(pmap->begin(), pmap->end(), [&points](const PhotonMapping::Photon& ph) {points.push_back(ph.pos);});
     manager->init_vbo("pm", &points[0], sizeof(glm::vec3) * points.size(), GL_STATIC_DRAW);*/
 
-    shaders[0].use_program();
-    shaders[0].uniformMatrix4fv("Model", glm::value_ptr(glm::mat4(1.f)));
-    shaders[0].uniformMatrix4fv("Projection", glm::value_ptr(glm::perspective(glm::radians(60.f), (float)W_WIDTH / W_HEIGHT, 0.1f, 1000.f)));
-    shaders[0].disable_program();
-
     glEnable(GL_DEPTH_TEST);
     glClearColor(0, 0, 0, 1);
     manager->checkOpenGLerror();
 }
 void Draw(int n, float fcspeed, float scspeed, double time) {
-   /* auto manager = OpenGLManager::get_instance();
-    shaders[n].use_program();
-    shaders[n].uniformMatrix4fv("View", glm::value_ptr(camera.GetViewMatrix()));
-    auto vpos = shaders[n].get_attrib_location("vPos");
-    glEnableVertexAttribArray(vpos);
-    glBindBuffer(GL_ARRAY_BUFFER, manager->get_buffer_id("pm"));
-    glVertexAttribPointer(vpos, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glDrawArrays(GL_POINTS, 0, pmpointcount);
-    shaders[n].disable_program();
-    OpenGLManager::checkOpenGLerror();*/
-    /*lampShader.use_program();
-    lampShader.uniformMatrix4fv("View", glm::value_ptr(camera.GetViewMatrix()));
-    //cube.render(1, GL_QUAD_STRIP);
-    lampShader.disable_program();*/
+
 }

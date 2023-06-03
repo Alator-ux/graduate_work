@@ -1,6 +1,6 @@
 // Code adapted from https://www.gamedev.net/forums/topic/594209-dlaa/
 // and http://and.intercon.ru/releases/talks/dlaagdc2011/
-#version 330 core
+#version 410
 in vec2 TexCoords;
 
 uniform sampler2D texture;

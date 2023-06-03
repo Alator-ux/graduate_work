@@ -14,7 +14,10 @@ struct Ray {
     Ray(const glm::vec3& origin, const glm::vec3& dir);
     Ray reflect_spherical(const glm::vec3& from, const glm::vec3& normal) const;
     Ray reflect(const glm::vec3& from, const glm::vec3& normal) const;
+    Ray reflect(const glm::vec3& from, const glm::vec3& normal, float dnd) const;
     bool refract(const glm::vec3& from, const glm::vec3& normal, float refr1, float refr2, Ray& out) const;
+    bool refract(const glm::vec3& from, const glm::vec3& normal, float refr1, float refr2,
+        float c1, Ray& out) const;
 };
 class PMModel {
     struct BarycentricCache

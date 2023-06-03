@@ -24,10 +24,12 @@ struct PhotonMappingSettings {
 
 struct PMDrawerSettings {
     struct Changed {
-        bool layerShader = false;
         bool resolution = false;
         bool layers = false;
         bool render = false;
+        bool layerShader = false;
+        bool bloomMergerShader = false;
+        bool grainShader = false;
     };
     struct LayerShader {
         bool hdr = true;
@@ -38,8 +40,21 @@ struct PMDrawerSettings {
         float gamma = 2.2f;
         std::vector<int> active;
     };
+    struct BloomMergeShader {
+        float bloom_intensity;
+        float sigma;
+        bool calc_sigma;
+        int kernel_size;
+    };
+    struct GrainShader {
+        bool on = false;
+        float amount;
+        float size;
+    };
     Changed changed;
     LayerShader layerShader;
+    BloomMergeShader bloomMergeShader;
+    GrainShader grainShader;
     size_t width, height, xstart;
 };
 
@@ -169,8 +184,34 @@ public:
     void update_render_status(bool value) {
         d_settings->changed.render = value;
     }
-    void update_xstart(size_t value) {
-        d_settings->xstart = value;
+    /* ----------Drawer => BloomShader Settings---------- */
+    void update_bloom_intensity(float value) {
+        d_settings->bloomMergeShader.bloom_intensity = value;
+        d_settings->changed.bloomMergerShader = true;
+    }
+    void update_bloom_sigma(float value) {
+        d_settings->bloomMergeShader.sigma = value;
+        d_settings->changed.bloomMergerShader = true;
+    }
+    void update_bloom_kernel_size(int value) {
+        d_settings->bloomMergeShader.kernel_size = value;
+        d_settings->changed.bloomMergerShader = true;
+    }
+    void update_bloom_calc_sigma(bool value) {
+        d_settings->bloomMergeShader.calc_sigma = value;
+        d_settings->changed.bloomMergerShader = true;
+    }
+    /* ----------Drawer => Grain Settings---------- */
+    void update_grain_amount(float value) {
+        d_settings->grainShader.amount = value;
+        d_settings->changed.grainShader = true;
+    }
+    void update_grain_size(float value) {
+        d_settings->grainShader.size = value;
+        d_settings->changed.grainShader = true;
+    }
+    void update_grain_on(bool value) {
+        d_settings->grainShader.on = value;
     }
     ~PMSettingsUpdater() {
         main_settings = nullptr;

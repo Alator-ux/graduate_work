@@ -1,4 +1,4 @@
-#version 330 core
+#version 410
 
 in vec2 TexCoords;
 uniform sampler2D tex;
@@ -15,5 +15,5 @@ void main()
             color += texture2D(tex, TexCoords.st + offset);
         }
     }
-    outColor = vec4(1.0,0.0,0.0,1.0);//color / (SAMPLES * SAMPLES);
+    outColor = color / (SAMPLES * SAMPLES);
 }

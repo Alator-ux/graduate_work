@@ -58,7 +58,7 @@ class MainWindow : public Window {
             disc_comp("Disc compression coef", 0.0f), 
             gtype("for global map", {"None", "Cone", "Gaussian"}, 60),
             ctype("for caustic map", { "None", "Cone", "Gaussian"}, 60),
-            ca_mult("Caustic multiplier", 1.f), gl_mult("Global multiplier", 1.f),
+            ca_mult("Caustic multiplier", 1.f, 0.f), gl_mult("Global multiplier", 1.f, 0.f),
             resolution("Resolution", {"100x100", "300x300", "600x600"})
         {
             this->pm = pm;
@@ -118,15 +118,10 @@ class MainWindow : public Window {
         PMSettingsUpdater* pmsu;
         Row layers;
         InputFloat exposure;
-        InputFloat brightness;
-        InputFloat ca_div;
-        InputFloat gl_mult;
         CheckBox hdr;
     public:
         FastChangesWindow(PMSettingsUpdater* pmsu, PMDrawer* drawer) :
-            exposure("Exposure", 1.f), brightness("Brightness", 1.f),
-            ca_div("Caustic divider", 16.f), gl_mult("Global multiplier", 10.f),
-            layers("Active layers"), hdr("HDR on", false)
+            exposure("Exposure", 1.f, 0.f), layers("Active layers"), hdr("HDR on", false)
         {
             layers.set_childs(std::vector<std::shared_ptr <Widget>>{
                 std::shared_ptr <Widget>(new CheckBox("di", true)),
@@ -139,34 +134,77 @@ class MainWindow : public Window {
             this->drawer = drawer;
             this->pmsu = pmsu;
             this->pmsu->update_exposure(exposure.get_value());
-            this->pmsu->update_brightness(brightness.get_value());
-            this->pmsu->update_dcaustic_multiplier(ca_div.get_value());
-            this->pmsu->update_dglobal_multiplier(gl_mult.get_value());
             this->pmsu->update_hdr(convert<bool>(hdr.get_value()));
             for (size_t i = 0; i < layers.get_childs()->size(); i++) {
                 this->pmsu->update_active_layers(i, true);
             }
         }
         void draw() override {
-            hdr.draw();
-            exposure.draw();
-            brightness.draw();
-            ca_div.draw();
-            gl_mult.draw();
-            layers.draw();
-
-            ImGui::NewLine();
-            if (ImGui::Button("Apply")) {
+            if (hdr.draw()) {
+                pmsu->update_hdr(convert<bool>(hdr.get_value()));
+            }
+            if (exposure.draw()) {
+                pmsu->update_exposure(exposure.get_value());
+            }
+            if (layers.draw()) {
                 auto layers_p = layers.get_childs();
                 for (size_t i = 0; i < layers_p->size(); i++) {
-                   auto& ptr = layers_p->at(i);
-                   pmsu->update_active_layers(i, ptr.get()->activated());
+                    auto& ptr = layers_p->at(i);
+                    pmsu->update_active_layers(i, ptr.get()->activated());
                 }
-                pmsu->update_exposure(exposure.get_value());
-                pmsu->update_brightness(brightness.get_value());
-                pmsu->update_dcaustic_multiplier(ca_div.get_value());
-                pmsu->update_dglobal_multiplier(gl_mult.get_value());
-                pmsu->update_hdr(convert<bool>(hdr.get_value()));
+            }
+        }
+    };
+    class BloomWindow : public Window {
+        PMSettingsUpdater* pmsu;
+        InputFloat bloom_inten;
+        InputInt kernel_size;
+        InputFloat sigma;
+        CheckBox calc_sigma;
+    public:
+        BloomWindow(PMSettingsUpdater* pmsu) : pmsu(pmsu), bloom_inten("Bloom intensity", 1.f, 0.f),
+        kernel_size("Kernel size", 5, 1), sigma("Sigma", 1.5f, 0.1f), calc_sigma("Calculate Sigma") {
+            pmsu->update_bloom_kernel_size(kernel_size.get_value());
+            pmsu->update_bloom_sigma(sigma.get_value());
+            pmsu->update_bloom_calc_sigma(convert<bool>(calc_sigma.get_value()));
+        }
+        void draw() override {
+            if (kernel_size.draw()) {
+                pmsu->update_bloom_kernel_size(kernel_size.get_value());
+            }
+            if (calc_sigma.draw()) {
+                pmsu->update_bloom_calc_sigma(convert<bool>(calc_sigma.get_value()));
+            }
+            if (sigma.draw()) {
+                pmsu->update_bloom_sigma(sigma.get_value());
+            }
+            if (bloom_inten.draw()) {
+                pmsu->update_bloom_intensity(bloom_inten.get_value());
+            }
+        }
+    };
+    class GrainWindow : public Window {
+        PMSettingsUpdater* pmsu;
+        CheckBox on;
+        InputFloat amount;
+        InputFloat size;
+    public:
+        GrainWindow(PMSettingsUpdater* pmsu) : pmsu(pmsu), on("On"), amount("Grain amount", 0.2f),
+            size("Grain size", 0.3f)
+        {
+            pmsu->update_grain_amount(amount.get_value());
+            pmsu->update_grain_size(size.get_value());
+            pmsu->update_grain_on(convert<bool>(on.get_value()));
+        }
+        void draw() override {
+            if (on.draw()) {
+                pmsu->update_grain_on(convert<bool>(on.get_value()));
+            }
+            if (amount.draw()) {
+                pmsu->update_grain_amount(amount.get_value());
+            }
+            if (size.draw()) {
+                pmsu->update_grain_size(size.get_value());
             }
         }
     };
@@ -176,13 +214,16 @@ class MainWindow : public Window {
     TabBar window_selector;
 public:
     MainWindow(PMSettingsUpdater* pmsu, PhotonMapping* pm, PMDrawer* drawer) :
-        window_selector({"Photon Tr", "Ray Tr", "Fast Ch"}) {
+        window_selector({"Photon Tr", "Ray Tr", "Layer Sh", "Bloom Sh", "Grain Sh"}) {
         this->pmsu = pmsu;
         windows.push_back(std::unique_ptr<Window>(new PhotonTracingWindow(pmsu, pm)));
         windows.push_back(std::unique_ptr<Window>(new RayTracingWindow(pmsu, pm, drawer)));
         windows.push_back(std::unique_ptr<Window>(new FastChangesWindow(pmsu, drawer)));
+        windows.push_back(std::unique_ptr<Window>(new BloomWindow(pmsu)));
+        windows.push_back(std::unique_ptr<Window>(new GrainWindow(pmsu)));
     }
     void draw() override {
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
         ImGui::SetNextWindowSize(ImVec2(
             500, 
             pmsu->window_settings.output->height));

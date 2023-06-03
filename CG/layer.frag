@@ -1,4 +1,4 @@
-#version 330 core
+#version 410
 
 in vec2 TexCoords;
 
@@ -22,7 +22,11 @@ layout (location = 0) out vec4 outColor;
 layout (location = 1) out vec4 outBloom;
 
 vec3 HDR(vec3 rgb) {
-    vec3 mapped = vec3(1.0) - exp(-rgb * exposure);
+    // vec3 mapped = vec3(1.0) - exp(-rgb * exposure);
+    // mapped = pow(mapped, vec3(1.0 / gamma));
+    // return mapped;
+    float t = pow(exposure, -1);
+    vec3 mapped = vec3(1.0) - exp(-t * rgb);
     mapped = pow(mapped, vec3(1.0 / gamma));
     return mapped;
 }
@@ -38,8 +42,8 @@ void main()
     vec3 emRGB = active[em] * texture2D(layers[em], invertedCoords).rgb;
     rgb += emRGB;
 
-    rgb += active[gi] * texture2D(layers[gi], invertedCoords).rgb;// * g_mult;
-    rgb += active[ca] * texture2D(layers[ca], invertedCoords).rgb;// * ca_mult;
+    rgb += active[gi] * texture2D(layers[gi], invertedCoords).rgb;
+    rgb += active[ca] * texture2D(layers[ca], invertedCoords).rgb;
 
     if (HDR_ON) {
         rgb = HDR(rgb);
@@ -49,7 +53,7 @@ void main()
     }
     outBloom = vec4(0.0, 0.0, 0.0, 1.0);
     if(emRGB != vec3(0.0)) {
-        outBloom = vec4(emRGB, 1.0);
+        outBloom = vec4(1.0);
     }
     outColor = vec4(rgb, 1.0);
 }

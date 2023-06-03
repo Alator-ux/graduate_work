@@ -126,6 +126,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)\Linking\include\imgui;$(SolutionDir)\Linking\include;$(SolutionDir)\Linking\include\CImg;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <Optimization>Disabled</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -182,7 +183,6 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="Selector.h" />
     <ClInclude Include="stb_image.h" />
-    <ClInclude Include="STLLoader.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="TextureDrawer.h" />
     <ClInclude Include="ThreeDInterface.h" />

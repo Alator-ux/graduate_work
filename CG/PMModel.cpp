@@ -45,6 +45,13 @@ Ray Ray::reflect_spherical(const glm::vec3& from, const glm::vec3& normal) const
     res.origin = from + 0.001f * res.dir;
     return res;
 }
+Ray Ray::reflect(const glm::vec3& from, const glm::vec3& normal, float dnd) const {
+    glm::vec3 refl_dir = dir - 2.f * normal * dnd;
+    Ray res;
+    res.dir = glm::normalize(refl_dir);
+    res.origin = from + 0.01f * res.dir;
+    return res;
+}
 Ray Ray::reflect(const glm::vec3& from, const glm::vec3& normal) const {
     auto dnd = glm::dot(dir, normal);
     glm::vec3 refl_dir = dir - 2.f * normal * dnd;
@@ -53,45 +60,20 @@ Ray Ray::reflect(const glm::vec3& from, const glm::vec3& normal) const {
     res.origin = from + 0.01f * res.dir;
     return res;
 }
+bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, float refr2, 
+    float c1, Ray& out) const {
+    float eta = refr1 / refr2;
+    c1 = -c1;
+    float w = eta * c1;
+    float c2m = (w - eta) * (w + eta);
+    if (c2m < -1.f) {
+        return false;
+    }
+    out.dir = eta * dir + (w - sqrt(1.f + c2m)) * normal;
+    out.origin = from + 0.01f * out.dir;
+    return true;
+}
 bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, float refr2, Ray& out) const {
-    /*float eta = refr1 / refr2; // relative index of refraction
-    float ndd = glm::dot(dir, normal); // n dot dir, cos(theta1)
-    auto theta = 1.f - eta * eta * (1.f - ndd * ndd);
-    if (theta < 0.f) {
-        return false;
-    }
-
-    eta = 2.f - refr1 / refr2;
-    float cosi = glm::dot(normal, dir);
-    out.dir = glm::normalize((dir * eta - normal * (-cosi + eta * cosi)));
-    out.origin = from;
-    return true;*/
-
-    /*float eta = refr1 / refr2; // relative index of refraction
-    float ndd = glm::dot(dir, normal); // n dot dir, cos(theta1)
-    auto theta = 1.f - eta * eta * (1.f - ndd * ndd);
-    if (theta < 0.f) {
-        return false;
-    }
-    float theta_sqrt = glm::sqrt(theta);
-    out.origin = from;
-    out.dir = glm::normalize(eta * (dir - ndd * normal) - theta_sqrt * normal);*/
-
-    //out.dir = glm::normalize(dir * theta - (theta_sqrt + eta * ndd) * normal);
-    
-    /*float eta = refr1 / refr2; // relative index of refraction
-    float ndd = glm::dot(dir, normal); // n dot dir, cos(theta1)
-    auto theta = 1.f - eta * eta * (1.f - ndd * ndd);
-    if (theta < 0.f) {
-        return false;
-    }
-
-    eta = 2.0f - refr1;
-    float cosi = glm::dot(normal, dir);
-    out.origin = from;
-    out.dir = glm::normalize(dir * eta - normal * (-cosi + eta * cosi));
-    return true;*/
-
     float eta = refr1 / refr2;
     float c1 = -glm::dot(dir, normal);
     float w = eta * c1;
