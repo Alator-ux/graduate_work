@@ -28,7 +28,7 @@ void PhotonMapping::emit(const PMModel& ls) {
         float dot;
         do{
             ray.dir.x = Random<float>::random(-1.f, 1.f);
-            ray.dir.y = Random<float>::random(-1.f, 1.f);
+            ray.dir.y = Random<float>::random(-1.f, 0.f);
             ray.dir.z = Random<float>::random(-1.f, 1.f);
             ray.dir = glm::normalize(ray.dir);
             prob = Random<float>::random(0.f, 1.f);
