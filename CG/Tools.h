@@ -19,7 +19,7 @@ struct Random {
     }
 };
 
-class KDTree {
+class BalancedKDTree {
     struct Node {
         glm::vec3 value;
         Node* left = nullptr;
