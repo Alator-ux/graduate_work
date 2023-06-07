@@ -11,7 +11,7 @@ the rays and see if they cover the space of all paths.
 L(S|D)*D are all the paths represented by the photon map.
 (LS*E)|(DS*E) are all the paths traced by the ray tracer.*/
 /* o - empty node
-*      
+*
 *      ^ -> s
 *      |    |
 *      |    v
@@ -19,15 +19,15 @@ L(S|D)*D are all the paths represented by the photon map.
 *      |    ^
 *      |    |
 *      v -> d -> pm
-* 
-* 
+*
+*
 *      ^ -> d
 *      |    | <- ^
 *      |    v    |
 * L -> o -> o -> s
 *           |
 *           v -> e -> rt
-* 
+*
 */
 class PathOperator
 {
@@ -54,7 +54,7 @@ public:
         if ((lastPathType == PathType::spec_refl || lastPathType == PathType::refr)
             && diffuse_surfs < 1) {
             return true;
-        } 
+        }
         if (lastPathType == PathType::dif_refl) {
             return false;
         }
@@ -67,40 +67,43 @@ public:
     }
 };
 struct PhotonCollector {
-    size_t gsize, csize;
+    PhotonCollectorSettings settings;
     // Stored photons for global illumination map
     std::vector<Photon> global;
     // Stored photons for caustic illumination map
     std::vector<Photon> caustic;
-    PhotonCollector() : global(), caustic(), gsize(0), csize(0) {}
-    PhotonCollector(size_t gsize, size_t csize) : global(), caustic(), gsize(gsize), csize(csize) { }
+    PhotonCollector() : global(), caustic() {}
+    PhotonCollector(size_t gsize, size_t csize) : global(), caustic()
+    {
+        settings.gsize = gsize;
+        settings.csize = csize;
+    }
     void push(const Photon& photon, const PathOperator& po) {
-        if (global.size() < gsize) {
+        if (po.response()) {
+            if (caustic.size() < settings.csize) {
+                caustic.push_back(photon);
+            }
+        } else if (global.size() < settings.gsize) {
             global.push_back(photon);
-        }
-        if (po.response() && (caustic.size() < csize)) {
-            caustic.push_back(photon);
         }
     }
     bool unfilled() {
-        return global.size() < gsize || caustic.size() < csize;
+        return global.size() < settings.gsize || caustic.size() < settings.csize;
     }
     void clear(){
         global.clear();
         caustic.clear();
     }
-    void update_gsize(size_t size) {
-        gsize = size;
-        global = std::vector<Photon>();
-
-    }
-    void update_csize(size_t size) {
-        csize = size;
-        caustic = std::vector<Photon>();
+    void check_updates() {
+        if (settings.update) {
+            global = std::vector<Photon>();
+            caustic = std::vector<Photon>();
+            settings.update = false;
+        }
     }
     void pring_logs() {
-        std::cout << "Collected photons for global map: " << global.size() << " out of " << gsize << std::endl;
-        std::cout << "Collected photons for caustic map: " << caustic.size() << " out of " << csize << std::endl;
+        std::cout << "Collected photons for global map: " << global.size() << " out of " << settings.gsize << std::endl;
+        std::cout << "Collected photons for caustic map: " << caustic.size() << " out of " << settings.csize << std::endl;
     }
 };
 class MediumManager {
@@ -123,40 +126,33 @@ class MediumManager {
     /// <param name="Value"> is a critical angle for this mediums in radians</param>
     /// </summary>
     std::map<std::pair<float,float>, float> ca_table;
+    void calc_angle(float eta1, float eta2) {
+        float eta = eta2 / eta1;
+        if (eta < 1.f && ca_table.find({ eta1, eta2 }) == ca_table.end()) {
+            float ca = std::cos(std::asin(eta));
+            ca_table[{eta1, eta2}] = ca;
+        }
+    }
 public:
     MediumManager(float def_refr = 1.f) : default_refr(def_refr) {
         clear();
     }
-    void compute_critical_angles(const PMScene& scene)
+    void compute_critical_angles(PMScene& scene)
     {
         float eta1, eta2, eta, ca;
-        for (int i = 0; i < (int)scene.objects.size() - 1; i++) {
-            for (int j = i + 1; j < (int)scene.objects.size(); j++) {
-                eta1 = scene.objects[i].get_material()->refr_index;
-                eta2 = scene.objects[j].get_material()->refr_index;
-                eta = eta2 / eta1; // from eta1 medium to eta2 medium
-                if (eta <= 1.f && ca_table.find({ eta1, eta2 }) == ca_table.end()) {
-                    ca = std::cos(std::asin(eta));
-                    ca_table[{eta1, eta2}] = ca;
-                }
-                eta = eta1 / eta2; // from eta2 medium to eta1 medium
-                if (eta <= 1.f && ca_table.find({ eta2, eta1 }) == ca_table.end()) {
-                    ca = std::cos(std::asin(eta));
-                    ca_table[{eta2, eta1}] = ca;
+        for (auto& preset : scene.presets) {
+            for (int i = 0; i < (int)preset.objects.size() - 1; i++) {
+                for (int j = i + 1; j < (int)preset.objects.size(); j++) {
+                    eta1 = preset.objects[i].get_material()->refr_index;
+                    eta2 = preset.objects[j].get_material()->refr_index;
+                    calc_angle(eta1, eta2); // from eta1 medium to eta2 medium
+                    calc_angle(eta2, eta1); // from eta2 medium to eta1 medium
                 }
             }
-        }
-        for (int i = 0; i < scene.objects.size(); i++) {
-            eta1 = scene.objects[i].get_material()->refr_index;
-            eta = default_refr / eta1; // from eta1 medium to eta2 medium
-            if (eta <= 1.f && ca_table.find({ eta1, default_refr }) == ca_table.end()) {
-                ca = std::cos(std::asin(eta));
-                ca_table[{eta1, eta2}] = ca;
-            }
-            eta = eta1 / default_refr; // from eta2 medium to eta1 medium
-            if (eta <= 1.f && ca_table.find({ default_refr , eta1 }) == ca_table.end()) {
-                ca = std::cos(std::asin(eta));
-                ca_table[{eta2, eta1}] = ca;
+            for (int i = 0; i < preset.objects.size(); i++) {
+                eta1 = preset.objects[i].get_material()->refr_index;
+                calc_angle(default_refr, eta1); // from eta1 medium to eta2 medium
+                calc_angle(eta1, default_refr); // from eta2 medium to eta1 medium
             }
         }
     };

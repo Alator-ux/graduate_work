@@ -253,7 +253,7 @@ void PhotonMap::total_locate_time() {
 }
 bool PhotonMap::radiance_estimate(const glm::vec3& inc_dir, const glm::vec3& iloc, const glm::vec3& norm, glm::vec3& out_rad) {
     out_rad.x = out_rad.y = out_rad.z = 0;
-    if (size == 0) {
+    if (size == 0 || settings.np_size == 0) {
         return false;
     }
     NearestPhotons np(iloc, norm, settings.np_size);

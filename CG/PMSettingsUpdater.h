@@ -1,5 +1,4 @@
 #pragma once
-#include "PMTools.h"
 
 struct PhotonMapSettings {
     enum FilterType { none = 0, cone, gaussian };
@@ -17,9 +16,19 @@ struct PhotonMapSettings {
 struct PhotonMappingSettings {
     // disable photon mapping for direct illumination
     bool dpmdi = false;
-    int max_rt_depth = 4;
+    int max_rt_depth = 5;
     float ca_mult = 1.f;
     float gl_mult = 1.f;
+};
+
+struct PMSceneSettings {
+    int active_preset;
+};
+
+struct PhotonCollectorSettings {
+    bool update = false;
+    size_t gsize = 0;
+    size_t csize = 0;
 };
 
 struct PMDrawerSettings {
@@ -73,8 +82,9 @@ class PMSettingsUpdater {
     PhotonMappingSettings* main_settings;
     PhotonMapSettings* gmap_settings;
     PhotonMapSettings* cmap_settings;
-    PhotonCollector* pc_settings;
+    PhotonCollectorSettings* pc_settings;
     PMDrawerSettings* d_settings;
+    PMSceneSettings* sc_settings;
 public:
     WindowSettings window_settings;
     void link_main(PhotonMappingSettings* ms) {
@@ -86,14 +96,22 @@ public:
     void link_cmap(PhotonMapSettings* cms) {
         cmap_settings = cms;
     }
-    void link_pc(PhotonCollector* pc) {
+    void link_pc(PhotonCollectorSettings* pc) {
         pc_settings = pc;
     }
     void link_drawer(PMDrawerSettings* drawer) {
         d_settings = drawer;
         window_settings.output = drawer;
     }
-
+    void link_scene(PMSceneSettings* sc) {
+        sc_settings = sc;
+    }
+    void update_preset(int value) {
+        sc_settings->active_preset = value;
+    }
+    void update_rt_depth(int value) {
+        main_settings->max_rt_depth = value;
+    }
     /* ----------Main Settings---------- */
     /// <summary>
     /// Update disabling photon mapping for direct illumination parameter
@@ -113,10 +131,12 @@ public:
     /// </summary>
     /// <param name="phc"> - photons count</param>
     void update_gphc(size_t gphc) {
-        pc_settings->update_gsize(gphc);
+        pc_settings->gsize = gphc;
+        pc_settings->update = true;
     }
     void update_cphc(size_t cphc) {
-        pc_settings->update_csize(cphc);
+        pc_settings->csize = cphc;
+        pc_settings->update = true;
     }
     void update_gnp_count(size_t count) {
         gmap_settings->np_size = count;
@@ -219,5 +239,6 @@ public:
         cmap_settings = nullptr;
         pc_settings = nullptr;
         d_settings = nullptr;
+        sc_settings = nullptr;
     }
 };

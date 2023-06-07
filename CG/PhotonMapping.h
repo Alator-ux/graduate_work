@@ -17,7 +17,6 @@ private:
     PhotonMap global_map;
     PhotonMap caustic_map;
     PMScene scene;
-    std::vector<LightSource> lsources;
     PathOperator path_operator;
     PhotonMappingSettings settings;
     PMDrawer* drawer;
@@ -59,8 +58,7 @@ private:
     glm::vec3 CookTorrance_GGX(float NdotL, float NdotV, float NdotH, glm::vec3 F, float roughness);
 public:
     PhotonMapping();
-    void init(PMDrawer* drawer, const std::vector<PMModel>& objects,
-        const std::vector<LightSource>& lsources, PMSettingsUpdater& pmsu);
+    void init(PMDrawer* drawer, std::vector<PMPreset>&& presets, PMSettingsUpdater& pmsu);
     void build_map();
     void render();
 };

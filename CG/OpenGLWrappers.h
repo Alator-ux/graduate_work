@@ -75,11 +75,15 @@ public:
         }
         return res;
     }
-    Texture& get_texture(const std::string& name) {
+    Texture* get_texture(const std::string& name) {
+        Texture* res;
         if (!_textures.count(name)) {
             std::cout << "No texture with name " << name << std::endl;
+            res = nullptr;
         }
-        Texture res = _textures[name];
+        else {
+            res = &_textures[name];
+        }
         return res;
     }
     void gen_vao(const std::string& name) {

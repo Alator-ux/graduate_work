@@ -159,6 +159,9 @@ public:
     T* data() {
         return inner_.data();
     }
+    unsigned int size() {
+        return dimx_ * dimy_;
+    }
 };
 
 template<typename T>
@@ -168,5 +171,6 @@ T convert(const void* pointer) {
 
 std::vector<std::string> split(const std::string& str, char delim);
 
-
 std::vector<float> one_dim_gkernel(int size, float sigma = 0);
+
+void print_vec3(const glm::vec3& value, const std::string& prefix = "", const std::string& postfix = "");
