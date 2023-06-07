@@ -39,6 +39,7 @@ private:
         void set_resolution(size_t width, size_t height);
         void bind_fb();
         void unbind_fb();
+        const std::string& get_fb();
         const std::string& get_cb();
     };
     class TwoOutFrameBuffer : public FrameBuffer {

@@ -1,7 +1,7 @@
 #include "Tools.h"
 
+constexpr float eps = 0.001f; // TODO потом как-нибудь на нормальное заменить
 bool vec3_equal(const glm::vec3& f, const glm::vec3& s) {
-    constexpr float eps = 0.0001f; // TODO потом как-нибудь на нормальное заменить
     bool res = true;
     res = res && glm::abs(f.x - s.x) < eps;
     res = res && glm::abs(f.y - s.y) < eps;
@@ -39,4 +39,10 @@ std::vector<float> one_dim_gkernel(int size, float sigma) {
         res[i] = std::exp(-x_sq / (2.f * disp)) * denom;
     }
     return res;
+}
+
+void print_vec3(const glm::vec3& value, const std::string& prefix, const std::string& postfix) {
+    std::cout << prefix 
+        << "vec3(x=" << value.x << ",y=" << value.y << ",z=" << value.z << ")" 
+        << postfix << std::endl;
 }

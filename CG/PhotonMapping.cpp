@@ -2,20 +2,17 @@
 /* ========== PhotonMapping class begin ========== */
 PhotonMapping::PhotonMapping() :
     global_map(PhotonMap::Type::def), caustic_map(PhotonMap::Type::caustic) {}
-void PhotonMapping::init(PMDrawer* drawer, const std::vector<PMModel>& objects,
-    const std::vector<LightSource>& lsources, PMSettingsUpdater& pmsu) {
-    this->scene = std::move(PMScene(objects));
-    this->lsources = lsources;
+void PhotonMapping::init(PMDrawer* drawer, std::vector<PMPreset>&& presets, PMSettingsUpdater& pmsu) {
+    this->scene = std::move(PMScene(std::move(presets)));
     this->drawer = drawer;
     this->medium_manager.compute_critical_angles(this->scene);
     this->global_map.set_settings_updater(pmsu);
     this->caustic_map.set_settings_updater(pmsu);
     this->drawer->set_settings_updater(pmsu);
-    pmsu.link_pc(&photon_collector);
+    pmsu.link_pc(&photon_collector.settings);
     pmsu.link_main(&settings);
+    pmsu.link_scene(&scene.settings);
 }
-Timer timers;
-
 void PhotonMapping::emit(const PMModel& ls) {
     size_t ne = 0;// Number of emitted photons
     Ray ray;
@@ -27,12 +24,6 @@ void PhotonMapping::emit(const PMModel& ls) {
         p.first = ls.get_ls()->position;
         ray.origin = p.first + p.second * 0.0001f;
 
-        /*scene.camera = glm::vec3(-0.38551, -0.5847, 0.68857);
-        scene.normal = -glm::normalize(scene.camera);
-        //scene.camera = scene.camera - 0.5f * scene.normal;
-        ray.origin = scene.camera;
-        p.second = scene.normal;*/
-
         float prob;
         float dot;
         do{
@@ -43,15 +34,14 @@ void PhotonMapping::emit(const PMModel& ls) {
             prob = Random<float>::random(0.f, 1.f);
             dot = glm::dot(ray.dir, p.second);
         } while (prob > dot);
-        auto pp = ls.get_ls()->intensity / (float)photon_collector.gsize; // photon power
+        auto pp = ls.get_ls()->intensity / (float)photon_collector.settings.gsize; // photon power
         trace(ray, false, pp);
         ne++;
-        if (ne % (photon_collector.gsize / 10) == 0) {
+        if (ne % (photon_collector.settings.gsize / 10) == 0) {
             std::cout << "\tPhotons emited: " << ne << std::endl;
             photon_collector.pring_logs();
         }
     }
-    timers.print_total();
 }
 bool PhotonMapping::refract(float cosNL, const PMModel* ipmm) {
     const Material* im = ipmm->get_material();
@@ -122,7 +112,7 @@ bool PhotonMapping::find_intersection(const Ray& ray, bool reverse_normal,
     float inter = 0.f;
     imodel = nullptr;
     size_t ii0, ii1, ii2;
-    for (PMModel& model : scene.objects) {
+    for (PMModel& model : scene.objects()) {
         float temp_inter;
         size_t tii0, tii1, tii2;
         glm::vec3 tnormal;
@@ -141,10 +131,7 @@ bool PhotonMapping::find_intersection(const Ray& ray, bool reverse_normal,
         return false;
     }
     inter_p = ray.origin + ray.dir * inter;
-    //inter_p += normal * 0.1f;
-    //imodel->get_normal(ii0, ii1, ii2, inter_p, normal);
-    //normal = imodel->get_normal(ii0);
-    if (glm::dot(ray.dir, normal) > 0) { // reverse_normal &&
+    if (reverse_normal && glm::dot(ray.dir, normal) > 0) { // reverse_normal &&
         normal *= -1.f;
     }
     return true;
@@ -174,10 +161,7 @@ void PhotonMapping::trace(const Ray& ray, bool in_object, const glm::vec3& pp) {
     }
     case PathType::dif_refl:
         photon_collector.push(Photon(inter_p, pp, ray.dir), path_operator);
-        timers.start();
         new_ray = ray.reflect_spherical(inter_p, normal);
-        timers.end();
-        timers.sum_total();
         break;
     case PathType::spec_refl:
         new_ray = ray.reflect(inter_p, normal);
@@ -198,12 +182,13 @@ float PhotonMapping::FresnelSchlick(float cosNL, float n1, float n2) {
     return f0 + (1.f - f0) * pow(1.f - cosNL, 5.f);
 }
 void PhotonMapping::build_map() {
+    photon_collector.check_updates();
     std::cout << "Photon emission started" << std::endl;
     size_t count = 0;
-    for (size_t i = 0; i < scene.objects.size(); i++) {
-        if (scene.objects[i].get_ls() != nullptr) {
+    for (size_t i = 0; i < scene.objects().size(); i++) {
+        if (scene.objects()[i].get_ls() != nullptr) {
             std::cout << "Light source " << count << std::endl;
-            emit(scene.objects[i]);
+            emit(scene.objects()[i]);
             count++;
         }
     }
@@ -217,6 +202,7 @@ void PhotonMapping::build_map() {
     photon_collector.clear();
     return ;
 }
+std::string last = "";
 glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth, int i, int j) {
     glm::vec3 res(0.f);
     if (depth > settings.max_rt_depth) {
@@ -227,13 +213,14 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth,
     if (!find_intersection(ray, in_object, imodel, normal, inter_p)) {
         return res;
     }
-    if (depth == 0 && imodel->name != "water") {
+    if (depth == 0 && imodel->name != "floor") {
        //return res;
     }
-    if (depth >= 1 && imodel->name == "floor") {
+    if (depth >= 1 && imodel->name == "leftSphere" && last == "leftSphere") {
         //return res;
         auto a = 1;
     }
+    last = imodel->name;
     const Material* mat = imodel->get_material();
     if (depth == 0 && !in_object) {
         auto a = 0;
@@ -241,20 +228,24 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth,
     //drawer->set_rgb(i, j, mat->diffuse, PMDrawer::di, depth);
     //return mat->diffuse;
     // std::cout << "SCuucccc" << std::endl;
-   //drawer->set_rgb(i, j, mat->diffuse, PMDrawer::di, depth);
-   //return mat->emission;
+  // drawer->set_rgb(i, j, mat->diffuse, PMDrawer::di, depth);
+  // return mat->emission;
     if (mat->diffuse != glm::vec3(0.f)) {
         glm::vec3 re(0.f);
         int lcount = 0;
         glm::vec3 tnormal, tinter_p;
         PMModel* timodel;
         Ray tray;
-        for (auto& ls : lsources) {
-            tray.origin = ls.position;
-            tray.dir = glm::normalize(inter_p - ls.position); // point <- ls
+        for (auto& model : scene.objects()) {
+            const LightSource* ls = model.get_ls();
+            if (ls == nullptr) {
+                continue;
+            }
+            tray.origin = ls->position;
+            tray.dir = glm::normalize(inter_p - ls->position); // point <- ls
+            tray.origin += tray.dir * 0.001f;
             if (find_intersection(tray, in_object, timodel, tnormal, tinter_p) && vec3_equal(inter_p, tinter_p)) {
                 lcount++;
-                //auto ls_normal = timodel->get_normal(0);  *glm::dot(ls_normal, tray.dir)
                 re += glm::max(glm::dot(normal, -tray.dir), 0.f);
             }
         }
@@ -281,8 +272,8 @@ glm::vec3 PhotonMapping::render_trace(const Ray& ray, bool in_object, int depth,
         auto t = render_trace(nray, in_object, depth+1, i, j);
         //glm::vec3 halfway = glm::normalize(nray.dir - ray.dir); // nray.dir + (-ray.dir)
         //float coef = glm::pow(glm::max(glm::dot(normal, halfway), 0.f), mat->shininess);
-        //res += t * mat->specular * coef;
-        auto tres = t * mat->specular * mat->opaque;
+        float coef = glm::pow(glm::max(glm::dot(nray.dir, -ray.dir), 0.0f), mat->shininess);
+        auto tres = t * mat->specular * mat->opaque * coef;
         res += tres;
         drawer->set_rgb(i, j, tres, PMDrawer::sp, depth);
     }
@@ -319,23 +310,23 @@ void PhotonMapping::render() {
     float width = drawer->get_width();
     float height = drawer->get_height();
     scene.camera.set_hw(height, width);
+    scene.check_preset();
     //scene.camera = glm::vec3(-0.82277, 1.6047, 1.4969);
     //scene.camera = glm::vec3(-0.38551, -0.5847, 0.68857);
 
     /* Вине глассе
-    scene.camera = glm::vec3(0.f, 25.f, 100.f);
-    scene.normal = -glm::normalize(scene.camera);
-    */
+    scene.camera.set_position(glm::vec3(2.f, 1.f, 4.f));
+    scene.camera.look_to(glm::vec3(-0.3f, -0.21f, -0.87f));*/
 
-    /* Ring )))
-    scene.camera.set_position(glm::vec3(0.f, 1.f, 1.f));
-    scene.camera.look_at(glm::vec3(0.f));
-    //scene.camera.set_position(lsources[0].position + 0.1f * (-glm::normalize(lsources[0].position)));
-   // scene.camera.look_to(glm::vec3(-0.0029, - 0.6365, - 0.7713));*/
+
+    /* Ring )))*/
+    //scene.camera.set_position(glm::vec3(0.f, 1.f, 1.f));
+    //scene.camera.look_at(glm::vec3(0.f));
+    
     
     /*Sphere*/
-    scene.camera.set_position(glm::vec3(-0.00999999046, 0.795000017, 2.49000001));
-    scene.camera.look_to(glm::vec3(0.f, 0.f, -1.f));
+    //scene.camera.set_position(glm::vec3(-0.00999999046, 0.795000017, 2.49000001));
+    //scene.camera.look_to(glm::vec3(0.f, 0.f, -1.f));
 
     //scene.camera.set_position(glm::vec3(2.5f, 0.75f, 1.25f));
     //scene.camera.look_at(glm::vec3(0.5f, 0.f, 1.0f));
@@ -353,7 +344,8 @@ void PhotonMapping::render() {
             render_trace(ray, false, 0, i, j);
         }
         if (j % ((size_t)height / 50) == 0) {
-            std::cout << "\tPixels filled: " << (j + 1) * width << " of " << width * height << std::endl;        }
+            std::cout << "\tPixels filled: " << (j + 1) * width << " of " << width * height << std::endl;   
+     }
     }
     global_map.total_locate_time();
     std::cout << "Rendering has ended" << std::endl;

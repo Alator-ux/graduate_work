@@ -103,6 +103,9 @@ void PMDrawer::FrameBuffer::bind_fb() {
 void PMDrawer::FrameBuffer::unbind_fb() {
     manager->unbind_framebuffer();
 }
+const std::string& PMDrawer::FrameBuffer::get_fb() {
+    return fb_cur;
+}
 const std::string& PMDrawer::FrameBuffer::get_cb() {
     return cb_cur;
 }
@@ -158,7 +161,6 @@ PMDrawer::TwoOutFrameBuffer::TwoOutFrameBuffer(const std::string& pref) {
     cb100x100 = pref + "cb100x100";
     cb100x100_other = pref + "cb100x100_other";
     gen_fb(fb100x100, cb100x100, cb100x100_other, 100, 100);
-
     fb300x300 = pref + "fb300x300";
     cb300x300 = pref + "cb300x300";
     cb300x300_other = pref + "cb300x300_other";
@@ -210,7 +212,7 @@ void PMDrawer::BloomShader::draw(size_t count, FrameBuffer& first, FrameBuffer& 
     TwoOutFrameBuffer& orig) {
     shader.use_program();
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_1D, manager->get_texture("bloomWeights").id);
+    glBindTexture(GL_TEXTURE_1D, manager->get_texture("bloomWeights")->id);
     manager->checkOpenGLerror();
     bool horizontal = true;
     for (size_t i = 0; i < count; i++)
@@ -224,13 +226,13 @@ void PMDrawer::BloomShader::draw(size_t count, FrameBuffer& first, FrameBuffer& 
             shader.uniform2f("dir", glm::vec2(0.f, 1.f));
         }
         if (i == 0) {
-            manager->get_texture(orig.get_ocb()).bind();
+            manager->get_texture(orig.get_ocb())->bind();
         }
         else if (horizontal) {
-            manager->get_texture(first.get_cb()).bind();
+            manager->get_texture(first.get_cb())->bind();
         }
         else {
-            manager->get_texture(second.get_cb()).bind();
+            manager->get_texture(second.get_cb())->bind();
         }
         dr->canvas.draw();
         horizontal = !horizontal;
@@ -241,8 +243,6 @@ void PMDrawer::BloomShader::draw(size_t count, FrameBuffer& first, FrameBuffer& 
     horiz = horizontal;
 }
 void PMDrawer::BloomShader::update() {
-    dr->settings.bloomMergeShader.kernel_size = 5;
-    dr->settings.bloomMergeShader.sigma = 1.5f  ;
     std::vector<float> kernel;
     if (dr->settings.bloomMergeShader.calc_sigma) {
         kernel = one_dim_gkernel(dr->settings.bloomMergeShader.kernel_size);
@@ -252,19 +252,18 @@ void PMDrawer::BloomShader::update() {
             dr->settings.bloomMergeShader.sigma);
     }
     
-    manager->get_texture("bloomWeights").del();
+    manager->get_texture("bloomWeights")->del();
     Texture tex(true);
     glBindTexture(GL_TEXTURE_1D, tex.id);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, kernel.size(), 0, GL_RED, GL_UNSIGNED_BYTE, (void*)kernel.data());
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, kernel.size(), 0, GL_RED, GL_FLOAT, (void*)kernel.data());
     glBindTexture(GL_TEXTURE_1D, 0);
     manager->set_texture("bloomWeights", tex);
 
     shader.use_program();
-    shader.uniform1i("weightsSize", kernel.size());
+    shader.uniform1i("weightsSize", (int)kernel.size());
     shader.uniform2f("texelSize",
         glm::vec2(1.f / (float)dr->settings.width, 1.f / (float)dr->settings.height));
     shader.disable_program();
@@ -284,14 +283,14 @@ void PMDrawer::BloomMergerShader::draw(bool horiz, FrameBuffer& first, FrameBuff
     FrameBuffer& main) {
     shader.use_program();
     if (horiz) {
-        manager->get_texture(second.get_cb()).bind(1);
+        manager->get_texture(second.get_cb())->bind(1);
         first.bind_fb();
     }
     else {
-        manager->get_texture(first.get_cb()).bind(1);
+        manager->get_texture(first.get_cb())->bind(1);
         second.bind_fb();
     }
-    manager->get_texture(main.get_cb()).bind();
+    manager->get_texture(main.get_cb())->bind();
     dr->canvas.draw();
     shader.disable_program();
     manager->unbind_framebuffer();
@@ -315,7 +314,7 @@ void PMDrawer::GrayGrainShader::init(PMDrawer* dr) {
 void PMDrawer::GrayGrainShader::draw(FrameBuffer& in_buffer, FrameBuffer& out_buffer) {
     out_buffer.bind_fb();
     shader.use_program();
-    manager->get_texture(in_buffer.get_cb()).bind();
+    manager->get_texture(in_buffer.get_cb())->bind();
     dr->canvas.draw();
     shader.disable_program();
     manager->unbind_framebuffer();
@@ -524,7 +523,7 @@ void PMDrawer::display() {
     {   // FXAA
         buffer1.bind_fb();
         shaders[fxaa].use_program();
-        manager->get_texture(tobuffer1.get_cb()).bind();
+        manager->get_texture(tobuffer1.get_cb())->bind();
         canvas.draw();
         shaders[fxaa].disable_program();
         buffer1.unbind_fb();
@@ -535,7 +534,7 @@ void PMDrawer::display() {
         glViewport(0, 0, settings.width / 2.f, settings.height / 2.f);
         buffer1.bind_fb();
         shaders[2].use_program();
-        manager->get_texture(tobuffer1.get_cb()).bind();
+        manager->get_texture(tobuffer1.get_cb())->bind();
         canvas.draw();
         shaders[2].disable_program();
         buffer1.unbind_fb();
@@ -558,7 +557,7 @@ void PMDrawer::display() {
     {   // ѕросто вывод итоговой текстуры в нужное место
         glViewport(500, 0, settings.width, settings.height);
         shaders[3].use_program();
-        manager->get_texture(next.get_cb()).bind();
+        manager->get_texture(next.get_cb())->bind();
         canvas.draw();
         shaders[3].disable_program();
         manager->checkOpenGLerror();

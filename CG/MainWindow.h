@@ -14,17 +14,24 @@ class MainWindow : public Window {
     class PhotonTracingWindow : public Window {
         PMSettingsUpdater* pmsu;
         PhotonMapping* pm;
+        DropDownMenu presets;
         InputSizeT gp_count;
         InputSizeT cp_count;
     public:
         PhotonTracingWindow(PMSettingsUpdater* pmsu, PhotonMapping* pm) :
-            gp_count("for global map", 100000), cp_count("for caustic map", 100000) {
+            gp_count("for global map", 100000), cp_count("for caustic map", 100000), presets("Presets",
+                { "Cornell Box", "Cornell Box Sphere", "Diamond", "Flagon", "Shot Glass",
+                "Ring", "Cornell Box Water" }) {
             this->pm = pm;
             this->pmsu = pmsu;
             this->pmsu->update_gphc(gp_count.get_value());
             this->pmsu->update_cphc(cp_count.get_value());
+            this->pmsu->update_preset(convert<int>(presets.get_value()));
         }
         void draw() override {
+            if (presets.draw()) {
+              pmsu->update_preset(convert<int>(presets.get_value()));
+            }
             ImGui::Text("Number of photons");
             if (gp_count.draw()) {
                 pmsu->update_gphc(gp_count.get_value());
@@ -45,6 +52,7 @@ class MainWindow : public Window {
         CheckBox pmii_only;
         InputSizeT gnp_count;
         InputSizeT cnp_count;
+        InputInt rt_depth;
         InputFloat disc_comp;
         InputFloat ca_mult;
         InputFloat gl_mult;
@@ -55,11 +63,11 @@ class MainWindow : public Window {
         RayTracingWindow(PMSettingsUpdater* pmsu, PhotonMapping* pm, PMDrawer* drawer) :
             pmii_only("Use the photon map only for indirect illumination"),
             gnp_count("for global photon map", 2000), cnp_count("for caustic photon map", 500),
-            disc_comp("Disc compression coef", 0.0f), 
-            gtype("for global map", {"None", "Cone", "Gaussian"}, 60),
-            ctype("for caustic map", { "None", "Cone", "Gaussian"}, 60),
+            disc_comp("Disc compression coef", 0.0f),
+            gtype("for global map", { "None", "Cone", "Gaussian" }, 60),
+            ctype("for caustic map", { "None", "Cone", "Gaussian" }, 60),
             ca_mult("Caustic multiplier", 1.f, 0.f), gl_mult("Global multiplier", 1.f, 0.f),
-            resolution("Resolution", {"100x100", "300x300", "600x600"})
+            resolution("Resolution", { "100x100", "300x300", "600x600" }), rt_depth("Max depth", 4, 0)
         {
             this->pm = pm;
             this->pmsu = pmsu;
@@ -71,6 +79,7 @@ class MainWindow : public Window {
             this->pmsu->update_rglobal_multiplier(gl_mult.get_value());
             auto resol = split(convert<std::string>(resolution.get_item()), 'x');
             this->pmsu->update_resolution(std::stoi(resol[0]), std::stoi(resol[1]));
+            this->pmsu->update_rt_depth(rt_depth.get_value());
             this->drawer = drawer;
             this->drawer->check_resolution();
         }
@@ -105,6 +114,9 @@ class MainWindow : public Window {
             }
             if (disc_comp.draw()) {
                 pmsu->update_disc_compression(disc_comp.get_value());
+            }
+            if (rt_depth.draw()) {
+                pmsu->update_rt_depth(rt_depth.get_value());
             }
             ImGui::NewLine();
             if (ImGui::Button("Render")) {

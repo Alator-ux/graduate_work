@@ -42,14 +42,14 @@ Ray Ray::reflect_spherical(const glm::vec3& from, const glm::vec3& normal) const
     } while (glm::dot(new_dir, normal) < 0);
     Ray res;
     res.dir = glm::normalize(new_dir);
-    res.origin = from + 0.001f * res.dir;
+    res.origin = from + 0.0001f * res.dir;
     return res;
 }
 Ray Ray::reflect(const glm::vec3& from, const glm::vec3& normal, float dnd) const {
     glm::vec3 refl_dir = dir - 2.f * normal * dnd;
     Ray res;
     res.dir = glm::normalize(refl_dir);
-    res.origin = from + 0.01f * res.dir;
+    res.origin = from + 0.01f * normal;
     return res;
 }
 Ray Ray::reflect(const glm::vec3& from, const glm::vec3& normal) const {
@@ -57,7 +57,7 @@ Ray Ray::reflect(const glm::vec3& from, const glm::vec3& normal) const {
     glm::vec3 refl_dir = dir - 2.f * normal * dnd;
     Ray res;
     res.dir = glm::normalize(refl_dir);
-    res.origin = from + 0.01f * res.dir;
+    res.origin = from + 0.01f * normal;
     return res;
 }
 bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, float refr2, 
@@ -70,7 +70,7 @@ bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, f
         return false;
     }
     out.dir = eta * dir + (w - sqrt(1.f + c2m)) * normal;
-    out.origin = from + 0.01f * out.dir;
+    out.origin = from + 0.01f * -normal;
     return true;
 }
 bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, float refr2, Ray& out) const {
@@ -82,7 +82,7 @@ bool Ray::refract(const glm::vec3& from, const glm::vec3& normal, float refr1, f
         return false;
     }
     out.dir = eta * dir + (w - sqrt(1.f + c2m)) * normal;
-    out.origin = from + 0.01f * out.dir;
+    out.origin = from + 0.01f * -normal;
     return true;
 }
 // ========== Ray section end ==========
@@ -440,23 +440,14 @@ PMScene::PMScene() {
     std::vector<PMModel> objects;
     glm::vec3 left_lower, right_upper;
 }
-PMScene::PMScene(const std::vector<PMModel>& objects)
-{
-    this->camera = PMCamera();
-    this->objects = std::vector<PMModel>(objects.size());
-    for (size_t i = 0; i < objects.size(); i++) {
-        this->objects[i] = objects[i];
-        if(objects[i].name == "backWall") {
-            glm::vec3* wn = objects[i].get_wn();
-            left_lower = glm::vec3(wn[0].x, wn[0].y, 0.99f);
-            right_upper = glm::vec3(wn[1].x, wn[1].y, 0.99f);
-            auto a = wn[2];
-            normal.x = -wn[2].x;
-            normal.y = -wn[2].y;
-            normal.z = -wn[2].z;
-        }
-    }
-    this->camera.set_position((left_lower + right_upper) * 0.5f);
-    //this->camera = glm::vec3(0.f, 1.f, 1.f);
-    //this->normal = glm::vec3(0.f, 0.f, - 1.f);
+PMScene::PMScene(std::vector<PMPreset>&& presets) :camera() {
+    this->presets = presets;
+    this->settings.active_preset = 0;
+}
+void PMScene::check_preset() {
+    camera.set_position(presets[settings.active_preset].pos);
+    camera.look_to(presets[settings.active_preset].dir);
+}
+std::vector<PMModel>& PMScene::objects() {
+    return presets[settings.active_preset].objects;
 }

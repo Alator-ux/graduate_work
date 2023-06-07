@@ -7,6 +7,7 @@
 #include "ObjLoader.h"
 #include <unordered_map>
 #include "Light.h"
+#include "PMSettingsUpdater.h"
 struct Ray {
     glm::vec3 origin;
     glm::vec3 dir;
@@ -72,9 +73,14 @@ public:
     void look_at(const glm::vec3& pos);
     glm::vec3 get_ray(float i, float j);
 };
-struct PMScene {
-    PMCamera camera;
+struct PMPreset {
     std::vector<PMModel> objects;
+    glm::vec3 pos, dir;
+};
+struct PMScene {
+    std::vector<PMPreset> presets;
+    PMSceneSettings settings;
+    PMCamera camera;
     /*
     * 1    2
     * |    ^
@@ -82,6 +88,8 @@ struct PMScene {
     * 4 -> 3
     */
     glm::vec3 right_upper, left_lower, normal;
-    PMScene(const std::vector<PMModel>& objects);
     PMScene();
+    PMScene(std::vector<PMPreset>&& presets);
+    void check_preset();
+    std::vector<PMModel>& objects();
 };
