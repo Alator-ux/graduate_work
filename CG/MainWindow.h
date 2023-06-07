@@ -239,7 +239,7 @@ public:
         ImGui::SetNextWindowSize(ImVec2(
             500, 
             pmsu->window_settings.output->height));
-        ImGui::Begin("Window!", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+        ImGui::Begin("Control Panel", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
         window_selector.draw();
         windows[window_selector.get_value()].get()->draw();
         ImGui::End();
